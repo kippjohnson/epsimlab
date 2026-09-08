@@ -11,6 +11,8 @@ test('accounts integrate with real D1: activation, permissions, recovery and pri
  const DB=await mf.getD1Database('DB');
  const sql=await readFile(new URL('../worker/migrations/0001_accounts.sql',import.meta.url),'utf8');
  await DB.batch(sql.split(';').map(s=>s.trim()).filter(Boolean).map(s=>DB.prepare(s)));
+ const learningSQL=await readFile(new URL('../worker/migrations/0002_learning_progress.sql',import.meta.url),'utf8');
+ await DB.batch(learningSQL.split(';').map(s=>s.trim()).filter(Boolean).map(s=>DB.prepare(s)));
  const origin='http://localhost:8787',env={DB,BETTER_AUTH_URL:origin,BETTER_AUTH_SECRET:randomToken()};
  let ip=0;
  const check=async(label,fn)=>{await fn();t.diagnostic(label);};
@@ -68,6 +70,24 @@ test('accounts integrate with real D1: activation, permissions, recovery and pri
   assert.equal((await call('/api/auth/sign-in/email','POST',{email:user.email,password:'incorrect password'})).status,401);
   assert.equal((await call('/api/account/profile','PATCH',{name:'Updated User',phone:'+1 555 123 4567',role:'superuser'},userCookie)).status,200);
   assert.equal((await call('/api/identity','GET',undefined,userCookie)).data.account.role,'user');
+ });
+ await check('Module 0 progress is private, validated, durable and completion is server-derived',async()=>{
+  const path='/api/learning/module-0',progress={version:1,answers:{'signals-clock':0,'signals-gain':1},completed:['scenarios'],userId:other.id};
+  assert.equal((await call(path)).status,401);
+  assert.equal((await call(path,'PUT',progress)).status,401);
+  assert.deepEqual((await call(path,'GET',undefined,userCookie)).data.answers,{});
+  assert.equal((await call(path,'PUT',progress,userCookie,{Origin:'https://evil.example'})).status,403);
+  const saved=await call(path,'PUT',progress,userCookie);assert.equal(saved.status,200);assert.deepEqual(saved.data.completed,['signals']);
+  const loaded=await call(path,'GET',undefined,userCookie);assert.deepEqual(loaded.data.answers,progress.answers);assert.match(loaded.headers.get('Cache-Control'),/no-store/);
+  assert.deepEqual((await call(path,'GET',undefined,otherCookie)).data.answers,{});
+  assert.equal((await call(path,'PUT',{...progress,answers:{'invented':0}},userCookie)).status,400);
+  assert.equal((await call(path,'PUT',{...progress,version:999},userCookie)).status,400);
+  assert.equal((await call(path,'PUT',{...progress,note:'a'.repeat(5000)},userCookie)).status,413);
+  assert.equal((await call(path,'POST',progress,userCookie)).status,405);
+  assert.deepEqual((await call(path,'GET',undefined,userCookie)).data.answers,progress.answers);
+  await call(path,'PUT',{version:1,answers:{'signals-clock':1}},userCookie);
+  assert.deepEqual((await call(path,'GET',undefined,userCookie)).data.completed,[]);
+  const relogin=await login(user.email);assert.deepEqual((await call(path,'GET',undefined,relogin)).data.answers,{'signals-clock':1});
  });
  await check('owner protection and server-enforced preview permissions',async()=>{
   for(const update of [{role:'user'},{status:'disabled'},{status:'removed'}])assert.equal((await call('/api/admin/person','PATCH',{id:owner.id,...update},ownerCookie)).status,403);

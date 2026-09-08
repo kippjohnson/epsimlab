@@ -6,7 +6,7 @@ A working React/TypeScript application with five deterministic teaching scenario
 
 Landing page: [epsimlab.com](https://epsimlab.com). Source: [kippjohnson/epsimlab](https://github.com/kippjohnson/epsimlab).
 
-Open [EPSimLab](https://app.epsimlab.com) in Safari or another modern browser. Deployed September 8, 2026, including five diagnostic cases, a guided introduction, 3D anatomy, and the mobile study workspace. Release 0.4 adds open account registration and the EPSimLab branding. Guests can explore every case; saving or exporting progress requires an account.
+Open [EPSimLab](https://app.epsimlab.com) in Safari or another modern browser. Deployed September 8, 2026, including five diagnostic cases, a guided introduction, 3D anatomy, and the mobile study workspace. Release 0.5 adds Module 0, with five foundational lessons, interactive timing diagrams, thirteen knowledge checks, and private account learning progress. Guests can explore every case; saving or exporting progress requires an account.
 
 ## Open immediately
 
@@ -27,6 +27,12 @@ npm run preview
 ```
 
 `npm run build` creates `dist/` for hosting and `release/ep-lab.html` for a portable standalone preview. All dependencies are pinned and a lockfile is included. A service worker caches the hosted application for offline use after the first successful load. API requests are never cached.
+
+## Module 0 and guided learning
+
+Open [Module 0 · EP foundations](https://app.epsimlab.com/#module-0) or select its button above the study. It covers signal interpretation; AH, HV, PQ/PR, and RR; pacing; forward delay and block; retrograde patterns; and five diagnostic scenarios. Diagrams are independent timing sketches and do not alter the live engine. All thirteen checks provide retry feedback. Correct answers complete a lesson; completion records practice, not clinical competency.
+
+Guests keep answers only in memory for the current session. Signed-in learners can explicitly save answers to D1 with **Save progress**, then restore them on another device. Switching accounts clears the prior learner’s answers. The API validates question IDs and answers, derives completion, and scopes reads and writes to the authenticated user. Apply `0002_learning_progress.sql` before deploying release 0.5. See [Module 0 implementation notes](docs/module-0.md).
 
 ## Guided learning and case library
 
@@ -121,7 +127,7 @@ Recommended next milestones:
 
 ## Validation
 
-`npm test` runs 27 tests (including a real-D1 account integration suite) covering baseline timing, induction at several phases, a noninducing protocol, parameter variants, failed capture, pulse-width effects, stimulus cancellation, deterministic replay, input validation, waveform frame continuity, actual filter effects, API token isolation/validation, distinct case physiology, case-specific scoring, AF determinism, and old/new session compatibility. The account suite also covers invitation replay and concurrent activation, role escalation attempts, CSRF, owner protections, private studies, forced password replacement, session revocation, and request limits. Worker bundling was checked with `wrangler deploy --dry-run`.
+`npm test` runs 32 tests (including a real-D1 account integration suite) covering baseline timing, induction at several phases, a noninducing protocol, parameter variants, failed capture, pulse-width effects, stimulus cancellation, deterministic replay, input validation, waveform frame continuity, actual filter effects, API token isolation/validation, distinct case physiology, case-specific scoring, AF determinism, and old/new session compatibility. The account suite also covers invitation replay and concurrent activation, role escalation attempts, CSRF, owner protections, private studies, forced password replacement, session revocation, and request limits. Worker bundling was checked with `wrangler deploy --dry-run`.
 
 For browser checks install Playwright and Chromium in your development environment, then run `node scripts/browser-smoke.mjs`. It checks the standalone build, induction, calipers, save/replay, and viewport overflow. The original automated smoke suite has not yet been run locally. Separate manual browser checks of the 3D feature are described in `docs/3d-anatomy.md`.
 

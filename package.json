@@ -1,0 +1,35 @@
+{
+  "name": "epsimlab",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build && node scripts/standalone.mjs",
+    "test": "node --experimental-transform-types --test tests/*.test.ts",
+    "preview": "vite preview --host 0.0.0.0",
+    "deploy": "npm run build && wrangler deploy",
+    "dev:api": "wrangler dev --ip 127.0.0.1 --port 8787",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "deploy:site": "wrangler deploy --config wrangler.landing.jsonc",
+    "deploy:all": "npm run deploy && npm run deploy:site"
+  },
+  "dependencies": {
+    "better-auth": "1.7.2",
+    "drizzle-orm": "0.45.2",
+    "lucide-react": "1.31.0",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "three": "0.185.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@types/three": "0.185.4",
+    "typescript": "5.9.3",
+    "vite": "8.0.13",
+    "wrangler": "4.92.0",
+    "miniflare": "4.20260515.0"
+  }
+}

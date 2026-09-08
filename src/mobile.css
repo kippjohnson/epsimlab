@@ -1,0 +1,187 @@
+/* A study workspace for narrow screens. Desktop retains the simultaneous panels. */
+.mobile-workspace-nav, .mobile-study-controls { display: none; }
+
+@media (max-width: 760px), (max-height: 500px) and (max-width: 1050px) {
+  :root { --mobile-nav-height: 62px; --mobile-controls-height: 66px; }
+  body { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+  .app-body { margin-left: 0; width: 100%; }
+  .app-shell { display: block; }
+  .topbar { height: 60px; padding: 0 14px; gap: 8px; }
+  .brand-name { font-size: 22px; }
+  .breadcrumb, .version, .local-status { display: none; }
+  .top-actions { gap: 8px; }
+  .top-actions .button { min-height: 44px; padding: 8px 12px; }
+  .top-actions .button.save span { font-size: 12px; }
+  .top-actions .button.subtle span { display: none; }
+  .workspace-heading { display: block; padding: 12px 12px 10px; }
+  .workspace-heading > div { display: none; }
+  .case-switch { margin: 0; width: 100%; min-width: 0; min-height: 54px; padding: 8px 12px; }
+  .case-switch strong { font-size: 12px; }
+  .case-switch small { font-size: 9px; }
+
+  .mobile-workspace-nav {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px;
+    position: sticky; top: 0; z-index: 15; padding: 7px 12px;
+    background: #0c1118f5; border-bottom: 1px solid var(--border);
+  }
+  .mobile-workspace-nav button {
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    min-height: 44px; padding: 6px 4px; border-radius: 6px;
+    font-size: 12px; background: #121e2a; border: 1px solid #2b3e4d; color: #a8bacb;
+  }
+  .mobile-workspace-nav button[aria-pressed=true] { color: #b0efd9; background: #1c3931; border-color: #4c7969; }
+  .workspace { display: block; padding: 12px; }
+  .workspace .recording-column, .workspace .control-column, .workspace .context-column { width: 100%; min-width: 0; }
+  .workspace[data-mobile-panel] > .recording-column,
+  .workspace[data-mobile-panel] > .control-column,
+  .workspace[data-mobile-panel] > .context-column { display: none; }
+  .workspace[data-mobile-panel=recording] > .recording-column,
+  .workspace[data-mobile-panel=anatomy] > .context-column { display: block; }
+  .workspace[data-mobile-panel=pacing] > .control-column { display: flex; flex-direction: column; gap: 14px; }
+  .control-column > * { width: 100%; }
+  .context-column .case-panel { display: block; min-height: 0; }
+  .case-body { padding: 16px; }
+  .case-body h2 { font-size: 16px; }
+  .case-body > p { font-size: 13px; line-height: 1.7; }
+  .case-tags span { font-size: 10px; }
+  .context-column .anatomy-panel { display: block; margin-top: 14px; }
+  .context-column .guide-card { display: none; }
+  .panel-heading { min-height: 46px; padding: 0 13px; font-size: 12px; }
+  .panel-foot { display: block; font-size: 11px; }
+  .tag { font-size: 10px; }
+
+  .recording-header { height: 44px; padding: 0 10px; }
+  .recording-header strong { font-size: 10px; letter-spacing: .4px; }
+  .recording-clock { font-size: 10px; }
+  .recording-toolbar { display: flex; flex-wrap: wrap; padding: 8px; gap: 6px; }
+  .recording-toolbar .tool-group { flex: 1 1 100%; justify-content: space-between; margin: 0; gap: 4px; }
+  .tool-group label { font-size: 11px; gap: 4px; }
+  .tool-group select { padding: 4px; min-height: 40px; font-size: 16px; }
+  .tool-button { min-height: 44px; padding: 8px; font-size: 12px; }
+  .recording-toolbar .tool-button { flex: 1; }
+  .traces { height: clamp(360px, 49svh, 480px); }
+  .channel-labels { width: 72px; }
+  .channel-labels span { font-size: 10px; }
+  .channel-labels button { padding: 0 7px; min-height: 0; }
+  .channel-labels small { font-size: 9px; }
+  .recording-footer { font-size: 10px; }
+  .recording-footer > span:last-child { display: none; }
+  .transport { padding: 8px 0 12px; }
+  .transport > span { font-size: 11px; }
+  .transport > span kbd, .transport-play { display: none; }
+  .transport .tool-button { font-size: 11px; }
+  .tabs { padding: 0 10px; gap: 9px; justify-content: space-between; }
+  .tabs button { min-height: 48px; font-size: 11px; gap: 4px; }
+  .tabs button > span { display: inline-block; }
+  .tabs button svg { display: none; }
+  .empty-state { padding: 20px 14px; }
+  .empty-state strong { font-size: 12px; }
+  .empty-state p, .log-row { font-size: 11px; }
+  .log-row { padding: 10px; gap: 6px; }
+  .log-row time { font-size: 9px; }
+  .measurement-row { flex-wrap: wrap; padding: 10px; gap: 7px; }
+  .measurement-row input { flex: 1; width: 80px; min-width: 60px; max-width: 160px; font-size: 16px; min-height: 44px; }
+  .measurement-row small { display: block; font-size: 10px; }
+  .measurement-row strong { margin-left: auto; }
+  .caliper-readout { top: 6px; left: 6px; font-size: 12px; padding: 2px 8px; }
+  .caliper-readout button { min-width: 38px; min-height: 40px; }
+  .review-scrubber { padding: 10px; font-size: 11px; }
+  input[type=range] { min-height: 36px; }
+
+  .stim-body { padding: 16px; }
+  .field > span { font-size: 12px; }
+  .field input, .field select, .site-field select { font-size: 16px; min-height: 44px; }
+  .field-grid { gap: 12px; }
+  .field small { font-size: 11px; }
+  .checkbox { min-height: 44px; font-size: 13px; }
+  .checkbox input { width: 18px; height: 18px; }
+  .pace-button { min-height: 50px; font-size: 14px; }
+  .presets button { min-height: 44px; font-size: 12px; }
+  .protocol-label { font-size: 10px; }
+  .filter-row { font-size: 12px; gap: 8px; }
+  .filter-row select { font-size: 16px; min-height: 44px; }
+  .signal-panel { margin-top: 0; }
+  .rhythm-card { display: grid; grid-template-columns: 1fr 1fr; padding: 16px; }
+  .rhythm-card > div + div { margin: 0; border-left: 1px solid #2b3b49; padding-left: 20px; }
+  .rhythm-card p { font-size: 11px; white-space: normal; line-height: 1.7; margin-top: 5px; }
+  .diagnose-button { min-height: 48px; font-size: 13px; }
+  .diagnose-hint { font-size: 11px; }
+
+  .rail {
+    inset: auto 0 0; width: 100%; height: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
+    padding: 3px max(6px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(6px, env(safe-area-inset-left));
+    display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); align-items: center;
+    border-right: 0; border-top: 1px solid #2a3d4b; background: #0d1721; z-index: 30;
+  }
+  .rail .rail-nav { display: contents; }
+  .rail .brand-mark, .rail .rail-divider, .rail .avatar { display: none; }
+  .rail .rail-button { width: 100%; min-height: 50px; margin: 0; gap: 5px; }
+  .rail .rail-button span { font-size: 10px; }
+  .rail .rail-button svg { width: 18px; height: 18px; }
+  .rail .rail-button.active:before { display: none; }
+  .mobile-study-controls {
+    display: grid; grid-template-columns: 58px minmax(0,1fr) 58px; gap: 8px;
+    position: fixed; bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
+    left: 0; right: 0; z-index: 29; min-height: var(--mobile-controls-height);
+    padding: 7px max(12px,env(safe-area-inset-right)) 7px max(12px,env(safe-area-inset-left));
+    background: #13212ef5; border-top: 1px solid #324858; box-shadow: 0 -6px 22px #0003;
+  }
+  .mobile-study-controls > button { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; min-height: 50px; padding: 4px; background: #1c2d3d; border: 1px solid #395064; border-radius: 6px; color: #c1d4e3; font-size: 10px; }
+  .mobile-study-controls .mobile-pace { flex-direction: row; gap: 8px; color: #14352b; background: #91d7be; border-color: #91d7be; font-size: 13px; font-weight: 600; }
+  .mobile-pace span { min-width: 0; }
+  .mobile-pace small { display: block; font-size: 9px; font-weight: 400; margin-top: 3px; overflow-wrap: anywhere; }
+  .mobile-study-controls .mobile-pace.delivering { background: #dfb876; border-color: #dfb876; color: #342716; }
+  .app-footer { padding: 20px 14px calc(155px + env(safe-area-inset-bottom)); font-size: 10px; line-height: 1.7; }
+  .app-footer > span:last-child { display: none; }
+  .onboarding-tip { position: relative; bottom: auto; left: auto; transform: none; width: auto; max-width: none; margin: -145px 12px calc(150px + env(safe-area-inset-bottom)); padding: 12px; z-index: 1; }
+  .onboarding-tip p { font-size: 12px; }
+  .onboarding-tip .tip-icon { display: none; }
+  .toast { left: 12px; right: 12px; bottom: calc(140px + env(safe-area-inset-bottom)); font-size: 12px; padding: 12px; max-width: none; }
+
+  dialog.modal, dialog.modal.anatomy-dialog { max-width: calc(100vw - 16px); max-height: calc(100dvh - 24px); }
+  .modal .modal-heading { position: sticky; top: 0; z-index: 3; background: #111c27; padding: 14px 16px; }
+  .modal-heading h2 { font-size: 18px; }
+  .modal .icon-button, .icon-button { min-width: 40px; min-height: 44px; }
+  .modal .button { min-height: 44px; font-size: 13px; }
+  .modal input:not([type=checkbox]):not([type=range]), .modal select { font-size: 16px; }
+  .diagnosis-grid { grid-template-columns: 1fr; }
+  .modal-intro, .quiet, .guide-steps p, .model-note p, .result-box p { font-size: 13px; }
+  .case-choice strong { font-size: 14px; }
+  .case-choice small { font-size: 12px; }
+  .anatomy-view-label select { font-size: 16px; min-height: 44px; }
+  .heart-stage-caption { font-size: 11px; }
+  .heart-zoom button { width: 44px; height: 44px; }
+  .anatomy3d-settings, .anatomy3d-expanded .anatomy3d-settings { font-size: 12px; gap: 12px; }
+  .anatomy3d-settings label:first-child { max-width: none; flex-basis: 100%; }
+  .anatomy-label-toggle { min-height: 36px; }
+  .anatomy-model-note, .anatomy-selected-detail { font-size: 11px; }
+  .anatomy-panel .catheter-key button { min-height: 44px; font-size: 12px; }
+  .heart-stage { height: 320px; }
+  .anatomy3d-expanded .heart-stage { height: clamp(260px, 47dvh, 440px); }
+  .anatomy3d-expanded .anatomy-view-label select { font-size: 16px; }
+  .anatomy-catheter-picker { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .anatomy-catheter-picker button { min-height: 50px; }
+}
+
+@media (max-height: 500px) and (max-width: 1050px) {
+  :root { --mobile-nav-height: 48px; --mobile-controls-height: 56px; }
+  .topbar, .workspace-heading { display: none; }
+  .mobile-workspace-nav { padding: 4px 12px; }
+  .mobile-workspace-nav button { min-height: 38px; }
+  .rail .rail-button { min-height: 44px; flex-direction: row; }
+  .mobile-study-controls { grid-template-columns: 90px minmax(0,1fr) 90px; padding-top: 4px; padding-bottom: 4px; }
+  .mobile-study-controls > button { min-height: 46px; flex-direction: row; }
+  .recording-toolbar { flex-wrap: nowrap; }
+  .traces { height: 360px; }
+  .anatomy3d-expanded .heart-stage { height: 280px; }
+}
+
+@media (max-width: 360px) {
+  .mobile-workspace-nav button { font-size: 11px; gap: 4px; }
+  .mobile-workspace-nav button svg { width: 14px; }
+  .mobile-study-controls { grid-template-columns: 48px minmax(0,1fr) 48px; gap: 5px; }
+  .mobile-study-controls .mobile-pace { font-size: 12px; }
+  .tabs { gap: 5px; padding: 0 7px; }
+  .tabs button { font-size: 10px; }
+  .channel-labels { width: 65px; }
+}

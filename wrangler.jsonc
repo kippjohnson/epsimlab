@@ -1,0 +1,52 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ep-lab-simulator",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-05-22",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ep-lab-accounts",
+      "migrations_dir": "worker/migrations",
+      "database_id": "780b2048-3ea1-4b67-851d-ce7d0c8f55b5",
+      "preview_database_id": "DB"
+    }
+  ],
+  "vars": {
+    "BETTER_AUTH_URL": "https://app.epsimlab.com",
+    "NOTIFICATION_EMAIL": "kipp.william.johnson@gmail.com",
+    "EMAIL_FROM": "notifications@lucidtake.com"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "send_email": [
+    {
+      "name": "ACCOUNT_EMAIL",
+      "destination_address": "kipp.william.johnson@gmail.com",
+      "allowed_sender_addresses": [
+        "notifications@lucidtake.com"
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "pattern": "app.epsimlab.com",
+      "custom_domain": true
+    }
+  ],
+  "dev": {
+    "host": "127.0.0.1:8787"
+  },
+  "workers_dev": true,
+  "preview_urls": false
+}

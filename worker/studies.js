@@ -1,11 +1,10 @@
-import {ENGINE_VERSION,isCompatibleSession} from '../src/engine/model.ts';
+import {ENGINE_VERSION,isCompatibleSession,validCommand} from '../src/engine/model.ts';
 import {actorFor,requireActor} from './auth.js';
 import {checkMutation,fail,json,readJSON} from './security.js';
-const validProtocol=p=>p&&['HRA','RVA'].includes(p.site)&&Number.isFinite(p.s1)&&p.s1>=220&&p.s1<=1500&&Number.isInteger(p.beats)&&p.beats>=1&&p.beats<=30&&Number.isFinite(p.output)&&p.output>=0&&p.output<=20&&Number.isFinite(p.width)&&p.width>=.1&&p.width<=2&&(p.s2===null||Number.isFinite(p.s2)&&p.s2>=180&&p.s2<=1000);
 export function cleanStudy(session){
  const s=session?.snapshot;
  if(!isCompatibleSession(session?.engineVersion,s?.caseId)||!Number.isFinite(s?.now)||s.now<0||s.now>14400000||!Array.isArray(s.commands)||s.commands.length>1000||typeof session.title!=='string'||session.title.length>120)fail(400,'Unsupported study.');
- let previous=0;for(const c of s.commands){if(!c||!Number.isFinite(c.t)||c.t<previous||c.t>s.now||!['pace','stop'].includes(c.type)||c.type==='pace'&&!validProtocol(c.protocol))fail(400,'Invalid command history.');previous=c.t;}
+ let previous=0;for(const c of s.commands){if(!c||!Number.isFinite(c.t)||c.t<previous||c.t>s.now||!validCommand(c,session.engineVersion))fail(400,'Invalid command history.');previous=c.t;}
  return {id:typeof session.id==='string'?session.id.slice(0,80):crypto.randomUUID(),title:session.title,engineVersion:session.engineVersion,savedAt:new Date().toISOString(),snapshot:{caseId:s.caseId,now:s.now,commands:s.commands},measurements:Array.isArray(session.measurements)?session.measurements.filter(m=>m&&typeof m.label==='string'&&m.label.length<100&&typeof m.channel==='string'&&m.channel.length<40&&Number.isFinite(m.start)&&Number.isFinite(m.end)).slice(0,100):[]};
 }
 export async function studiesAPI(request,env){

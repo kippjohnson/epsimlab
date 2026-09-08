@@ -16,6 +16,7 @@ function bipole(t:number,amp:number=1,width:number=2){return amp*(g(t,8,width)-.
 /** Causal, phenomenological templates; these are not a volume-conductor forward solution. */
 export function contribution(channel:number,e:LabEvent,t:number){
  const d=t-e.t;if(d<0||d>420)return 0;
+ if(e.kind==='shock')return d<180?(channel<2?2:1.2)*Math.exp(-d/35)*Math.cos(d*.22):0;
  if(e.kind==='stimulus')return d<4?(channel<2?.13:.7)*Math.exp(-d*1.5):0;
  if(e.kind!=='activation')return 0;
  if(channel<2){if(e.node==='A'){
@@ -41,5 +42,5 @@ export class Synthesizer {
  private filters:{hp:Biquad;lp:Biquad}[]=[]; private history:LabEvent[]=[];
  constructor(public band:'standard'|'narrow'='standard'){this.setBand(band);}
  setBand(band:'standard'|'narrow'){this.band=band;this.filters=CHANNELS.map(c=>({hp:new Biquad('high',c.kind==='surface'?.5:band==='standard'?30:100),lp:new Biquad('low',c.kind==='surface'?150:band==='standard'?500:300)}));}
- render(start:number,end:number,events:LabEvent[]){this.history.push(...events.filter(e=>e.kind==='activation'||e.kind==='stimulus'));this.history=this.history.filter(e=>e.t>=start-450);const n=Math.round((end-start)*FS/1000),data=CHANNELS.map(()=>new Float32Array(n));for(let i=0;i<n;i++){const t=start+i*1000/FS;for(let ch=0;ch<CHANNELS.length;ch++){let v=.003*Math.sin(t*.071+ch*3)+.002*Math.sin(t*.137+ch);if(ch<2)v+=.015*Math.sin(t*.0015);for(const e of this.history)v+=contribution(ch,e,t);data[ch][i]=this.filters[ch].lp.process(this.filters[ch].hp.process(v));}}return data;}
+ render(start:number,end:number,events:LabEvent[]){this.history.push(...events.filter(e=>e.kind==='activation'||e.kind==='stimulus'||e.kind==='shock'));this.history=this.history.filter(e=>e.t>=start-450);const n=Math.round((end-start)*FS/1000),data=CHANNELS.map(()=>new Float32Array(n));for(let i=0;i<n;i++){const t=start+i*1000/FS;for(let ch=0;ch<CHANNELS.length;ch++){let v=.003*Math.sin(t*.071+ch*3)+.002*Math.sin(t*.137+ch);if(ch<2)v+=.015*Math.sin(t*.0015);for(const e of this.history)v+=contribution(ch,e,t);data[ch][i]=this.filters[ch].lp.process(this.filters[ch].hp.process(v));}}return data;}
 }

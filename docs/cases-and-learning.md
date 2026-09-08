@@ -14,7 +14,7 @@ This is a foundational selection of common EP teaching presentations, not an epi
 
 AVNRT/AVRT are simplified event networks. The AT driver does not reproduce all automatic, triggered, or reentrant AT responses. Flutter represents the timing of a typical-flutter scenario; it does not implement a spatial CTI loop or validate entrainment/localization. AF uses a phenomenological local activation model, not distributed atrial wavefronts. Synthetic waveforms include catheter/template delays and are not a spatial forward solution.
 
-A long VA, short VA, AH prolongation, eccentric sequence, or irregular ventricular rhythm is not independently diagnostic. Feedback explicitly separates the observed pattern from proof of the intended clinical mechanism. Formal diagnostic maneuvers, validated cutoffs, drug responses, cardioversion, ablation, and implantation are future work.
+A long VA, short VA, AH prolongation, eccentric sequence, or irregular ventricular rhythm is not independently diagnostic. Feedback explicitly separates the observed pattern from proof of the intended clinical mechanism. The treatment lab now adds authored drug responses, synchronized cardioversion, and selected RF substrates (see treatment-lab.md). Formal diagnostic maneuvers, validated cutoffs, AF ablation, and implantation remain future work.
 
 ## Learning workflow
 
@@ -31,7 +31,7 @@ A long VA, short VA, AH prolongation, eccentric sequence, or irregular ventricul
 
 AH checks follow causal activation ancestry. VA, A–A, V–V, and conduction ratios use measured event times. The AT independence check requires an actual series of ventricular stimuli with several captured beats, an unchanged atrial clock before/during pacing, and a changed ventricular pattern; failed capture alone cannot establish independence. CS sequence and AF morphology checks use metadata that also drives the signal synthesizer.
 
-Engine version 0.2.0 supports all six stored case IDs (five visible plus legacy `avnrt-02`). Version 0.1.0 sessions are accepted only for the original AVNRT IDs, whose physiology and signal behavior are retained. Import, local load, and optional cloud write enforce compatibility. New-session cloud round-trips preserve the engine version. Saved studies retain commands and measurements; tour state and diagnosis submissions are not archived.
+Engine version 0.3.0 supports new treatment commands and retains compatibility with 0.2.0 pacing-only studies. Both support all six stored case IDs (five visible plus legacy `avnrt-02`). Version 0.1.0 sessions are accepted only for the original AVNRT IDs, whose physiology and signal behavior are retained. Import, local load, and optional cloud write enforce compatibility. New-session cloud round-trips preserve the engine version. Saved studies retain commands and measurements; tour state and diagnosis submissions are not archived.
 
 ## Verification · September 8, 2026
 

@@ -6,7 +6,7 @@ A working React/TypeScript application with five deterministic teaching scenario
 
 Landing page: [epsimlab.com](https://epsimlab.com). Source: [kippjohnson/epsimlab](https://github.com/kippjohnson/epsimlab).
 
-Open [EPSimLab](https://app.epsimlab.com) in Safari or another modern browser. Deployed September 8, 2026, including five diagnostic cases, a guided introduction, 3D anatomy, and the mobile study workspace. Release 0.5 adds Module 0, with five foundational lessons, interactive timing diagrams, thirteen knowledge checks, and private account learning progress. Guests can explore every case; saving or exporting progress requires an account.
+Open [EPSimLab](https://app.epsimlab.com) in Safari or another modern browser. Deployed September 8, 2026, including five diagnostic cases, a guided introduction, 3D anatomy, and the mobile study workspace. Release 0.6 adds a treatment lab with drugs, synchronized cardioversion, and RF ablation. Module 0 provides five foundational lessons, interactive timing diagrams, thirteen knowledge checks, and private account learning progress. Guests can explore every case; saving or exporting progress requires an account.
 
 ## Open immediately
 
@@ -53,6 +53,14 @@ Each worksheet checks selected observations against retained events. Two key obs
 
 Space pauses/resumes. F freezes a review segment. Click a channel label to cycle its gain. Changing the intracardiac filter genuinely changes the signal; the surface filter remains 0.5–150 Hz. Frozen traces preserve their captured filter output.
 
+## Treatment lab
+
+Select **Treat rhythm** above the recording or **Ablate** in navigation. Live II/His/RV signals remain visible while scrolling treatment controls. Drug challenges include adenosine, esmolol, isoproterenol, and ibutilide with explicit model durations and limitations. Synchronized cardioversion waits for a modeled R peak; it does not remove the underlying substrate.
+
+RF ablation supports slow-pathway modification, a concealed left lateral accessory connection, a focal RA driver, and a three-segment CTI line. Choose a target in the 3D view or selector, adjust power/duration/contact, deliver or stop RF, and test the result. Incomplete contact produces less tissue effect, a CTI gap maintains conduction, and His-region injury causes AV block with a ventricular escape. CTI directional probes are abstract conduction calculations, not a full differential-pacing recording. AF ablation is not implemented.
+
+These are original teaching demonstrations, not prescribing or procedural guidance. Drug kinetics and lesion thresholds are deliberately simplified. Treatments, tests, and interruption commands persist in study snapshots and replay with engine version 0.3.0. Old 0.2.0 and eligible 0.1.0 studies remain supported. See [treatment model and verification](docs/treatment-lab.md).
+
 ## Current implementation
 
 - React interface, responsive layouts, interactive schematic 3D heart and fixed catheter models.
@@ -92,7 +100,7 @@ This is an educational software prototype with expert validation pending. It is 
 
 The visible library contains AVNRT, orthodromic AVRT, focal AT, typical flutter, and AF. AVNRT retains a dual-pathway graph; AVRT adds a V-to-A return limb. AT and flutter use focal/periodic atrial drivers. AF uses seeded irregular local atrial activations and variable AV nodal recovery. Flutter does not implement a spatial CTI circuit; AF does not simulate distributed wavefronts. Each debrief explains what its observations cannot establish. The old AVNRT parameter variant remains available through saved-session replay. Waveforms are causal phenomenological templates, not a spatial volume-conductor solution. The sinus source uses a simplified suppression rule. The graph does not yet model full restitution, all forms of concealed penetration, detailed tissue collision, or all responses to ventricular overdrive pacing. Published maneuver cutoffs are not used as automatic classifiers.
 
-The anatomical display uses original procedural 3D chamber surfaces and vessels. It is schematic rather than a segmented anatomical mesh; its coordinates are illustrative and are not calibrated for fluoroscopy. Catheters are at fixed sites. Pacing from His/CS, full 12-lead morphology, free navigation, drug administration, ablation, and device implantation are not implemented. UI entries for ablation/devices explicitly describe their planned scope.
+The anatomical display uses original procedural 3D chamber surfaces and vessels. It is schematic rather than a segmented anatomical mesh; its coordinates are illustrative and are not calibrated for fluoroscopy. Catheters are at fixed sites. Pacing from His/CS, full 12-lead morphology, free navigation, measured activation mapping, AF ablation, and device implantation are not implemented. The treatment lab supports discrete RF sites with a simplified lesion model; device implantation remains a roadmap item.
 
 Waveforms retain a 180-second rolling buffer; frozen review copies the buffer. Saved sessions contain physiology commands and caliper measurements, not the full waveform archive or historical filter/gain settings. Replay starts with the standard filter. The debrief checks selected observations against the simplified model history and is not a validated clinical rubric. A short VA interval or AH jump alone must not be generalized into a universal diagnostic rule.
 
@@ -121,13 +129,13 @@ Recommended next milestones:
 
 1. Expert review of traces, pacing responses, calipers, and case assumptions; browser QA.
 2. Refine conduction restitution and validate diagnostic maneuvers across the five mechanisms.
-3. Position-dependent sensing/capture and a reviewed anatomical coordinate system.
-4. CTI flutter mapping, lesion effects, gaps, and bidirectional block assessment.
+3. Position-dependent sensing/capture, measured mapping, and a reviewed anatomical coordinate system.
+4. Extend the current abstract CTI line to spatial propagation, differential pacing, lesion recovery, and durable block validation.
 5. Dual-chamber pacemaker lead placement, fixation, electrical testing, and timing logic.
 
 ## Validation
 
-`npm test` runs 32 tests (including a real-D1 account integration suite) covering baseline timing, induction at several phases, a noninducing protocol, parameter variants, failed capture, pulse-width effects, stimulus cancellation, deterministic replay, input validation, waveform frame continuity, actual filter effects, API token isolation/validation, distinct case physiology, case-specific scoring, AF determinism, and old/new session compatibility. The account suite also covers invitation replay and concurrent activation, role escalation attempts, CSRF, owner protections, private studies, forced password replacement, session revocation, and request limits. Worker bundling was checked with `wrangler deploy --dry-run`.
+`npm test` runs 42 tests (including a real-D1 account integration suite) covering baseline timing, induction at several phases, a noninducing protocol, parameter variants, failed capture, pulse-width effects, stimulus cancellation, deterministic replay, input validation, waveform frame continuity, actual filter effects, API token isolation/validation, distinct case physiology, case-specific scoring, AF determinism, and old/new session compatibility. The account suite also covers invitation replay and concurrent activation, role escalation attempts, CSRF, owner protections, private studies, forced password replacement, session revocation, and request limits. Worker bundling was checked with `wrangler deploy --dry-run`.
 
 For browser checks install Playwright and Chromium in your development environment, then run `node scripts/browser-smoke.mjs`. It checks the standalone build, induction, calipers, save/replay, and viewport overflow. The original automated smoke suite has not yet been run locally. Separate manual browser checks of the 3D feature are described in `docs/3d-anatomy.md`.
 

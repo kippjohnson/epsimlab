@@ -100,8 +100,11 @@ test('accounts integrate with real D1: activation, permissions, recovery and pri
  });
  let studyId;
  await check('saved studies are bound to the authenticated user for list, load and delete',async()=>{
-  const study={id:'client-selected-id',userId:(await call('/api/identity','GET',undefined,otherCookie)).data.account.userId,title:'Test AVNRT',engineVersion:'0.2.0',snapshot:{caseId:'avnrt-01',now:6000,commands:[]},measurements:[]};
+  const study={id:'client-selected-id',userId:(await call('/api/identity','GET',undefined,otherCookie)).data.account.userId,title:'Test AVNRT',engineVersion:'0.3.0',snapshot:{caseId:'avnrt-01',now:6000,commands:[{type:'drug',drug:'adenosine',t:0},{type:'ablate',target:'slow-pathway',power:30,duration:5,contact:.5,t:1000}]},measurements:[]};
   const saved=await call('/api/studies','POST',study,userCookie);assert.equal(saved.status,201,JSON.stringify(saved.data));studyId=saved.data.study.id;assert.notEqual(studyId,study.id);
+  assert.deepEqual((await call('/api/studies?id='+studyId,'GET',undefined,userCookie)).data.study.snapshot.commands,study.snapshot.commands);
+  assert.equal((await call('/api/studies','POST',{...study,engineVersion:'0.2.0'},userCookie)).status,400);
+  assert.equal((await call('/api/studies','POST',{...study,snapshot:{...study.snapshot,commands:[{t:0,type:'ablate',target:'left-ap',power:999,duration:10,contact:1}]}},userCookie)).status,400);
   assert.equal((await call('/api/studies','GET',undefined,userCookie)).data.studies.length,1);
   assert.equal((await call('/api/studies','GET',undefined,otherCookie)).data.studies.length,0);
   assert.equal((await call('/api/studies?id='+studyId,'GET',undefined,otherCookie)).status,404);

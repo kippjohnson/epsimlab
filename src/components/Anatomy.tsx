@@ -6,8 +6,9 @@ import type {LabEvent} from '../engine/model';
 import {CATHETERS, createHeartModel} from './heartModel';
 import {SchematicAnatomy} from './SchematicAnatomy';
 import './anatomy.css';
+import {TARGETS,type TargetId} from '../engine/therapy';
 
-interface Props {site: string; onSite: (site: string) => void; events: LabEvent[]; now: number; explain?: boolean}
+interface Props {site: string; onSite: (site: string) => void; events: LabEvent[]; now: number; explain?: boolean;ablation?:{target:TargetId;lesions:Partial<Record<TargetId,number>>;active:boolean};onTarget?:(target:TargetId)=>void}
 type View = 'Anterior' | 'Right oblique' | 'Left oblique' | 'Posterior';
 const VIEWS: Record<View, [number, number, number]> = {
   Anterior: [0, .35, 10], 'Right oblique': [-7, .8, 7], 'Left oblique': [7, .8, 7], Posterior: [0, .35, -10],
@@ -49,6 +50,10 @@ function HeartViewport({expanded = false, suspended = false, onExpand, ...props}
     controls.minPolarAngle = .18; controls.maxPolarAngle = Math.PI - .18;
     controls.rotateSpeed = .7;
     const model = createHeartModel(); scene.add(model.root);
+    const treatmentGroup=new THREE.Group();model.root.add(treatmentGroup);
+    const targetMarkers=TARGETS.map(target=>{const marker=new THREE.Mesh(new THREE.SphereGeometry(.095,14,10),new THREE.MeshStandardMaterial({color:target.id==='his-risk'?'#ef938c':'#f4bd74',emissive:'#ff813a',emissiveIntensity:.2}));marker.position.set(target.position[0],target.position[1],target.position[2]);marker.userData.target=target.id;treatmentGroup.add(marker);return marker;});
+    const ablationCatheter=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshStandardMaterial({color:'#ffad73',emissive:'#ed804b',emissiveIntensity:.25}));treatmentGroup.add(ablationCatheter);let lastTarget='';
+
     scene.add(new THREE.HemisphereLight(0xd5e9ff, 0x293040, 2.3));
     const key = new THREE.DirectionalLight(0xffeee5, 3.1); key.position.set(-3,5,7); scene.add(key);
     const rim = new THREE.DirectionalLight(0x8cbbff, 2.5); rim.position.set(4,2,-5); scene.add(rim);
@@ -102,6 +107,7 @@ function HeartViewport({expanded = false, suspended = false, onExpand, ...props}
       const rect = canvas.getBoundingClientRect();
       pointer.set((event.clientX-rect.left)/rect.width*2-1, -(event.clientY-rect.top)/rect.height*2+1);
       raycaster.setFromCamera(pointer,camera);
+      const targetHit=latest.current.ablation?raycaster.intersectObjects(targetMarkers,false)[0]:null;if(targetHit){latest.current.onTarget?.(targetHit.object.userData.target as TargetId);return;}
       const hit = raycaster.intersectObjects(model.pickables, false)[0];
       if (hit) latest.current.onSite(hit.object.userData.catheter as string);
     };
@@ -130,6 +136,11 @@ function HeartViewport({expanded = false, suspended = false, onExpand, ...props}
       lastFrame = timestamp;
       const active = (node: string) => !reducedMotion.matches && state.explain && state.events.some(event =>
         event.kind === 'activation' && event.node === node && state.now >= event.t && state.now-event.t < 160);
+      treatmentGroup.visible=Boolean(state.ablation);
+      if(state.ablation){const a=state.ablation;const target=TARGETS.find(t=>t.id===a.target)!;
+        if(lastTarget!==a.target){lastTarget=a.target;const tip=new THREE.Vector3(...target.position);const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(-.4,-3.2,.4),new THREE.Vector3(-.55,-1.2,.5),new THREE.Vector3(-.5,.1,.6),tip]);ablationCatheter.geometry.dispose();ablationCatheter.geometry=new THREE.TubeGeometry(curve,60,.045,8,false);}
+        targetMarkers.forEach((marker,i)=>{const id=TARGETS[i].id;const extent=a.lesions[id]??0;marker.material.color.set(extent>=1?'#da6958':extent>0?'#c99053':id==='his-risk'?'#f39a97':'#b9a38b');marker.scale.setScalar(id===a.target?1.45:1);marker.material.emissiveIntensity=id===a.target&&a.active?.8:.05;});
+      }
       model.tissue.forEach(material => {material.opacity = state.opacity / 100; material.visible = state.opacity > 0;});
       model.chambers.forEach(chamber => {
         chamber.material.emissive.copy(chamber.material.color);
@@ -184,7 +195,7 @@ function HeartViewport({expanded = false, suspended = false, onExpand, ...props}
       <button key={catheter.id} aria-pressed={props.site === catheter.id} onClick={() => props.onSite(catheter.id)} style={{'--catheter-color': catheter.color} as CSSProperties}><i/><span>{catheter.id}<small>{catheter.poles} electrodes</small></span></button>
     )}</div>}
     {expanded && <p className="anatomy-selected-detail"><strong style={{color: selected.color}}>{selected.label}</strong>{selected.detail}{props.site === 'His' || props.site === 'CS' ? ' · Recording only in this release' : ''}</p>}
-    <div className="anatomy-model-note">Schematic 3D anatomy · fixed catheter positions</div>
+    <div className="anatomy-model-note">{props.ablation?'Schematic targets · orange ablation catheter · red established lesions':'Schematic 3D anatomy · fixed catheter positions'}</div>
   </div>;
 }
 

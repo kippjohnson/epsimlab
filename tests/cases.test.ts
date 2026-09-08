@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {Engine} from '../src/engine/Engine.ts';
 import {CASES,isCompatibleSession} from '../src/engine/model.ts';
 import {assess,observations,TEACHING} from '../src/teaching.ts';
-import {contribution,Synthesizer} from '../src/engine/signals.ts';
+import {contribution,Synthesizer,CHANNELS} from '../src/engine/signals.ts';
 const act=(e:Engine,node:string)=>e.events.filter(x=>x.kind==='activation'&&x.node===node);
 const intervals=(xs:{t:number}[])=>xs.slice(1).map((x,i)=>x.t-xs[i].t);
 
@@ -52,7 +52,7 @@ test('new cases replay exactly with different time chunking, including AF after 
  const b=new Engine(c.id);for(const cmd of a.commands){while(b.now+37<cmd.t)b.advance(b.now+37);b.advance(cmd.t);if(cmd.type==='pace')b.pace(cmd.protocol);else b.stop();}b.advance(a.now);assert.deepEqual(b.events,a.events,c.id);assert.deepEqual(b.metrics(),a.metrics());}
 });
 test('all case waveforms remain finite and frame-continuous with phenotype-specific signals',()=>{
- const samples=(id:string,chunk:number)=>{const e=new Engine(id),s=new Synthesizer(),data:number[][]=Array.from({length:9},()=>[]);for(let t=0;t<1200;t+=chunk){const n=e.events.length;e.advance(t+chunk);s.render(t,t+chunk,e.events.slice(n)).forEach((x,i)=>data[i].push(...x));}return data;};
+ const samples=(id:string,chunk:number)=>{const e=new Engine(id),s=new Synthesizer(),data:number[][]=Array.from({length:CHANNELS.length},()=>[]);for(let t=0;t<1200;t+=chunk){const n=e.events.length;e.advance(t+chunk);s.render(t,t+chunk,e.events.slice(n)).forEach((x,i)=>data[i].push(...x));}return data;};
  for(const c of CASES.filter(c=>!c.legacy)){const a=samples(c.id,50),b=samples(c.id,100);assert.deepEqual(a,b,c.id);assert.ok(a.flat().every(Number.isFinite));}
  assert.notDeepEqual(samples('af-01',50)[2],samples('flutter-01',50)[2]);
 });

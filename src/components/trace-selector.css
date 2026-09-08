@@ -12,3 +12,10 @@
 .traces .channel-labels button{flex:1;min-height:0;height:auto}
 .traces.compact .channel-labels button{height:auto}
 @media(max-width:400px){.trace-selector{padding:18px}.trace-groups{gap:10px}.trace-presets .button{min-height:44px}}
+.trace-pair-options{display:grid;grid-template-columns:1fr}
+.trace-groups .surface-lead-group{grid-column:1/-1}
+.surface-lead-group .trace-pair-options{grid-template-columns:repeat(6,minmax(0,1fr))}
+.trace-viewport{max-height:650px;overflow-y:auto;overscroll-behavior:contain}
+.trace-viewport .traces{min-height:var(--trace-min-height)}
+.trace-viewport.compact{max-height:190px}
+@media(max-width:760px){.trace-viewport{max-height:60svh}.surface-lead-group .trace-pair-options{grid-template-columns:repeat(3,minmax(0,1fr))}}

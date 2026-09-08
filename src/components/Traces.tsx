@@ -1,9 +1,9 @@
-import {useEffect,useRef,useState} from 'react';
-import {CHANNELS} from '../engine/signals';
+import {useEffect,useRef,useState,type CSSProperties} from 'react';
+import {CHANNELS,displayChannels} from '../engine/signals';
 import type {Recording,Measurement} from '../store';
 interface Props {recording:Recording;end:number|null;sweep:number;gain:number;gains:number[];onGain?:(index:number)=>void;calipers:boolean;onMeasure:(m:Measurement)=>void;compact?:boolean;annotations?:boolean;selected?:string;visibleChannels?:string[]}
 export function Traces({recording,end,sweep,gain,gains,onGain,calipers,onMeasure,compact=false,annotations=false,visibleChannels}:Props){
- const channels=visibleChannels?CHANNELS.flatMap((c,i)=>visibleChannels.includes(c.id)?[i]:[]):compact?[0,4,8]:CHANNELS.map((_,i)=>i);
+ const channels=visibleChannels?displayChannels(visibleChannels):compact?[0,4,8]:CHANNELS.map((_,i)=>i);
  const channelKey=channels.join(',');
  const activePointer=useRef<number|null>(null);const canvas=useRef<HTMLCanvasElement>(null);const wrap=useRef<HTMLDivElement>(null);const bounds=useRef({start:0,end:0,width:1,height:1,left:0});const drag=useRef<{start:number;end:number;channel:number}|null>(null);const [measurement,setMeasurement]=useState<number|null>(null);const latest=useRef({end,sweep,gain,gains,calipers,annotations,channels});latest.current={end,sweep,gain,gains,calipers,annotations,channels};
  useEffect(()=>{let frame=0;let lastPaint=0;const draw=(stamp=performance.now())=>{const cv=canvas.current;if(!cv||!wrap.current)return;const w=wrap.current.clientWidth,h=wrap.current.clientHeight,dpr=Math.min(window.devicePixelRatio||1,2);if(!w||!h||document.hidden||stamp-lastPaint<32){frame=requestAnimationFrame(draw);return;}lastPaint=stamp;if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);}const ctx=cv.getContext('2d')!;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#0b1017';ctx.fillRect(0,0,w,h);
@@ -11,14 +11,14 @@ export function Traces({recording,end,sweep,gain,gains,onGain,calipers,onMeasure
  const minor=p.sweep>=100?50:100;for(let t=Math.ceil(start/minor)*minor;t<finish;t+=minor){const x=px(t);ctx.strokeStyle=t%500===0?'#202b37':'#151e29';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(Math.round(x)+.5,0);ctx.lineTo(Math.round(x)+.5,h);ctx.stroke();if(t%500===0){ctx.fillStyle='#778494';ctx.font='10px ui-monospace, monospace';ctx.fillText((t/1000).toFixed(1)+'s',x+5,h-7);}}
  channels.forEach((ch,index)=>{const y=row*(index+.5);ctx.strokeStyle='#17212c';ctx.beginPath();ctx.moveTo(0,row*(index+1));ctx.lineTo(w,row*(index+1));ctx.stroke();ctx.save();ctx.beginPath();ctx.rect(0,index*row,w,row);ctx.clip();ctx.strokeStyle=CHANNELS[ch].color;ctx.lineWidth=1.1;ctx.beginPath();const scale=row*.64*p.gain*(p.gains[ch]??1);for(let x=0;x<w;x++){const t=start+x/w*duration;const samples=Math.max(1,Math.ceil(duration/w*2));let lo=Infinity,hi=-Infinity;for(let k=0;k<samples;k++){const value=recording.value(ch,t+k*.5);lo=Math.min(lo,value);hi=Math.max(hi,value);}if(x===0)ctx.moveTo(x,y-hi*scale);else ctx.lineTo(x,y-hi*scale);if(samples>1)ctx.lineTo(x,y-lo*scale);}ctx.stroke();ctx.restore();});
  const stimuli=recording.events.filter(e=>e.kind==='stimulus'&&e.t>=start&&e.t<finish);for(const e of stimuli){ctx.strokeStyle=e.captured?'#eea76988':'#e5737388';ctx.setLineDash([2,3]);ctx.beginPath();ctx.moveTo(px(e.t),0);ctx.lineTo(px(e.t),h-24);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle=e.captured?'#eea769':'#e57373';ctx.font='9px ui-monospace, monospace';ctx.fillText(e.label==='S2'?'S2':'S',px(e.t)+3,11);}
- if(p.annotations){for(const e of recording.events){if(e.kind!=='activation'||!['A','H','V'].includes(e.node??'')||e.t<start||e.t>finish)continue;ctx.fillStyle=e.node==='A'?'#6bb6ff':e.node==='H'?'#f1c267':'#69d7aa';ctx.font='10px ui-monospace, monospace';const r=channels.includes(4)?channels.indexOf(4):channels.indexOf(3);if(r>=0)ctx.fillText(e.node!,px(e.t)+2,row*r+12);}}
+ if(p.annotations){for(const e of recording.events){if(e.kind!=='activation'||!['A','H','V'].includes(e.node??'')||e.t<start||e.t>finish)continue;ctx.fillStyle=e.node==='A'?'#6bb6ff':e.node==='H'?'#f1c267':'#69d7aa';ctx.font='10px ui-monospace, monospace';const his=['HISd','HISp','HIS23'].map(id=>channels.findIndex(ch=>CHANNELS[ch].id===id)).find(row=>row>=0);const r=his??-1;if(r>=0)ctx.fillText(e.node!,px(e.t)+2,row*r+12);}}
  if(drag.current){const a=px(drag.current.start),b=px(drag.current.end);ctx.fillStyle='#66ddbb12';ctx.fillRect(Math.min(a,b),0,Math.abs(b-a),h-24);ctx.strokeStyle='#7be1c2';ctx.lineWidth=1;for(const x of [a,b]){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h-24);ctx.stroke();}ctx.beginPath();ctx.moveTo(a,22);ctx.lineTo(b,22);ctx.stroke();}
  frame=requestAnimationFrame(draw);};draw();return()=>cancelAnimationFrame(frame);},[recording,compact]);
  useEffect(()=>{activePointer.current=null;drag.current=null;setMeasurement(null);},[channelKey]);
  useEffect(()=>{if(!calipers){activePointer.current=null;drag.current=null;setMeasurement(null);}},[calipers]);
  const cancelDrag=()=>{if(activePointer.current!==null){activePointer.current=null;drag.current=null;setMeasurement(null);}};
  const position=(clientX:number)=>{const b=bounds.current;return Math.round(b.start+Math.max(0,Math.min(b.width,clientX-b.left))/b.width*(b.end-b.start));};
- return <div className={'traces '+(compact?'compact':'')}>
+ return <div className={'trace-viewport '+(compact?'compact':'')}><div className={'traces '+(compact?'compact':'')} style={{'--trace-min-height':(channels.length*44+24)+'px'} as CSSProperties}>
   <div className="channel-labels">{channels.map(ch=><button key={ch} type="button" title={onGain?"Cycle channel gain":CHANNELS[ch].label} onClick={()=>onGain?.(ch)} style={{color:CHANNELS[ch].color}}><span>{CHANNELS[ch].label}</span><small>{(gains[ch]??1)*gain}×</small></button>)}<span className="unit-label">mV</span></div>
   <div className={'trace-plot '+(calipers?'measuring':'')} ref={wrap}>
   <canvas ref={canvas} role="img" aria-label={"Recordings: "+channels.map(ch=>CHANNELS[ch].label).join(', ')+". Enable calipers to measure time intervals."}
@@ -28,5 +28,5 @@ export function Traces({recording,end,sweep,gain,gains,onGain,calipers,onMeasure
    onPointerCancel={cancelDrag} onLostPointerCapture={cancelDrag} />
    {calipers&&measurement!==null&&<div className="caliper-readout">Δ {measurement} ms <button aria-label="Clear calipers" onClick={()=>{drag.current=null;setMeasurement(null);}}>×</button></div>}
   </div>
- </div>;
+ </div></div>;
 }

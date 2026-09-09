@@ -59,6 +59,12 @@ See [diagnostic curriculum and model boundaries](docs/diagnostic-curriculum.md) 
 
 Space pauses/resumes. F freezes a review segment. Click a channel label to cycle its gain. Changing the intracardiac filter genuinely changes the signal; the surface filter remains 0.5–150 Hz. Frozen traces preserve their captured filter output.
 
+## Slow-motion study
+
+Use **Study speed** beside the live recording controls or in the diagnostic and treatment workspaces. Choose **¼×**, **½×**, **1×**, or **5×**. The selection applies to signals, pacing, drug effects, cardioversion synchronization, ablation timers, and replay. At ¼×, one simulated second takes four seconds to watch.
+
+Measured intervals and displayed heart rate retain their simulated values: a 400 ms cycle still measures 400 ms. Sweep independently controls the horizontal recording scale. Changing speed does not resume a paused study or alter frozen evidence. The speed stays selected when opening another case; refreshing the app starts at 1×.
+
 ## Treatment lab
 
 Select **Treat rhythm** above the recording or **Ablate** in navigation. Live II/His/RV signals remain visible while scrolling treatment controls. Drug challenges include adenosine, esmolol, isoproterenol, ibutilide, and verapamil with explicit model durations and limitations. Synchronized cardioversion waits for a modeled R peak; it does not remove the underlying substrate.

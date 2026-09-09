@@ -10,7 +10,7 @@ export default {
   const url=new URL(request.url),path=url.pathname;
   if(url.hostname==='ep-lab-simulator.kippwjo.workers.dev'&&['GET','HEAD'].includes(request.method))return Response.redirect('https://app.epsimlab.com'+path+url.search,308);
   try{
-   if(path==='/api/health')return json({app:'epsimlab',version:'0.7.0',engineVersion:ENGINE_VERSION,accounts:configured(env),storage:configured(env)||Boolean(env.DB&&env.RECORDINGS)});
+   if(path==='/api/health')return json({app:'epsimlab',version:'0.7.1',engineVersion:ENGINE_VERSION,accounts:configured(env),storage:configured(env)||Boolean(env.DB&&env.RECORDINGS)});
    if(!path.startsWith('/api/')){
     const response=await env.ASSETS.fetch(request);const headers=new Headers(response.headers);
     headers.set('X-Content-Type-Options','nosniff');headers.set('Referrer-Policy','no-referrer');headers.set('X-Frame-Options','DENY');

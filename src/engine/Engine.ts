@@ -1,8 +1,10 @@
+import {DiagnosticEngine} from './DiagnosticEngine.ts';
+import {EMPTY_DIAGNOSTIC,validDiagnostic,type DiagnosticAction} from './curriculum.ts';
 import {DRUGS,TARGETS,CTI_TARGETS,validTherapy,type DrugId,type TargetId,type TherapyAction,type TherapyState} from './therapy.ts';
 import { CASES, type LabEvent, type NodeId, type Protocol, type Command, validCommand } from './model.ts';
 interface Scheduled {t:number; seq:number; type:'arrive'|'sinus'|'pace'|'driver'|'rf'|'drug-end'|'convert'|'shock-expire'|'escape';drug?:DrugId; node?:NodeId; from?:NodeId; cause?:number; label:string; protocol?:Protocol; generation?:number}
 /** Deterministic dual-pathway network. All times in ms; queue ordering is stable. */
-export class Engine {
+class LegacyEngine {
  now=0; events:LabEvent[]=[]; commands:Command[]=[]; private queue:Scheduled[]=[]; private sequence=0; private id=0;
  private last:Record<NodeId,number>={A:-1e9,U:-1e9,L:-1e9,H:-1e9,V:-1e9};
  private refractory:Record<NodeId,number>={A:180,U:180,L:200,H:190,V:210};
@@ -14,8 +16,8 @@ export class Engine {
  private active(drug:DrugId){return (this.drugs[drug]??0)>this.now;}
  private lesioned(target:TargetId){return (this.lesions[target]??0)>=1;}
  private ensureSinus(){if(!this.sinusStarted){this.sinusStarted=true;this.schedule({t:this.now+800,type:'sinus',label:'Sinus impulse'});}}
- private nodalDelay(value:number){return Math.round(value*(this.active('esmolol')?1.55:1)*(this.active('isoproterenol')?.8:1));}
- private erp(node:NodeId){return this.refractory[node]+(node==='U'?(this.active('esmolol')?240:0)-(this.active('isoproterenol')?40:0):0);}
+ private nodalDelay(value:number){return Math.round(value*((this.active('esmolol')||this.active('verapamil'))?1.55:1)*(this.active('isoproterenol')?.8:1));}
+ private erp(node:NodeId){return this.refractory[node]+(node==='U'?((this.active('esmolol')||this.active('verapamil'))?240:0)-(this.active('isoproterenol')?40:0):0);}
  therapyState():TherapyState{return {drugs:(Object.entries(this.drugs) as [DrugId,number][]).filter(([,until])=>until>this.now).map(([id,until])=>({id,until})),lesions:{...this.lesions},rf:this.rf?{...this.rf}:null,shockPending:this.shockPending,tests:[...this.tests],avBlock:this.lesioned('his-risk'),lastConversion:this.lastConversion};}
 
  readonly definition:typeof CASES[number];
@@ -49,7 +51,7 @@ export class Engine {
    if(e.t<this.driverSuppressedUntil)return;
    this.activate('A',e.t,undefined,undefined,m==='at'?'Focal atrial impulse':m==='flutter'?'Organized atrial circuit activation':'Irregular local atrial activation');return;
   }
-  if(e.type==='sinus'){this.schedule({t:e.t+(this.active('isoproterenol')?550:this.active('esmolol')?1000:800),type:'sinus',label:'Sinus impulse'});if(e.t-this.last.A>=(this.active('isoproterenol')?450:700))this.activate('A',e.t,undefined,undefined,'Sinus atrial activation');return;}
+  if(e.type==='sinus'){this.schedule({t:e.t+(this.active('isoproterenol')?550:(this.active('esmolol')||this.active('verapamil'))?1000:800),type:'sinus',label:'Sinus impulse'});if(e.t-this.last.A>=(this.active('isoproterenol')?450:700))this.activate('A',e.t,undefined,undefined,'Sinus atrial activation');return;}
   if(e.type==='pace'){
    if(e.generation!==this.generation)return;
    const p=e.protocol!;const node=p.site==='HRA'?'A':'V';const threshold=(p.site==='HRA'?0.6:0.8)*(1+0.5/p.width);
@@ -97,12 +99,14 @@ export class Engine {
  }
  pace(protocol:Protocol,record=true){
   if(!['HRA','RVA'].includes(protocol.site)||!Number.isFinite(protocol.s1)||protocol.s1<220||protocol.s1>1500||!Number.isInteger(protocol.beats)||protocol.beats<1||protocol.beats>30||!Number.isFinite(protocol.output)||protocol.output<0||protocol.output>20||!Number.isFinite(protocol.width)||protocol.width<0.1||protocol.width>2|| (protocol.s2!==null&&(!Number.isFinite(protocol.s2)||protocol.s2<180||protocol.s2>1000)))throw new Error('Invalid pacing protocol.');
+  if(!validCommand({t:this.now,type:'pace',protocol}))throw new Error('Invalid pacing protocol.');
   if(record)this.commands.push({t:this.now,type:'pace',protocol:{...protocol}});
   this.generation++;const generation=this.generation;const start=this.now+100;
   for(let i=0;i<protocol.beats;i++)this.schedule({t:start+i*protocol.s1,type:'pace',label:`S1 · ${i+1}/${protocol.beats}`,protocol:{...protocol},generation});
   if(protocol.s2!==null)this.schedule({t:start+(protocol.beats-1)*protocol.s1+protocol.s2,type:'pace',label:'S2',protocol:{...protocol},generation});
+  if(protocol.s2!==null&&protocol.s3!=null)this.schedule({t:start+(protocol.beats-1)*protocol.s1+protocol.s2+protocol.s3,type:'pace',label:'S3',protocol:{...protocol},generation});
   this.record({t:this.now,kind:'note',label:`${protocol.site} · ${protocol.beats} × ${protocol.s1} ms${protocol.s2!==null?' + S2 '+protocol.s2+' ms':''}`});
-  return start+(protocol.beats-1)*protocol.s1+(protocol.s2??0);
+  return start+(protocol.beats-1)*protocol.s1+(protocol.s2??0)+(protocol.s3??0);
  }
  stop(record=true){this.generation++;if(record)this.commands.push({t:this.now,type:'stop'});this.record({t:this.now,kind:'note',label:'Stimulator stopped'});}
  private convert(reason:string){
@@ -153,8 +157,20 @@ export class Engine {
    this.record({t:this.now,kind:'note',label:'Endpoint test · '+action.test+(this.therapyState().drugs.length?' · drug effects active; reassess after washout':'')});
   }
  }
- applyCommand(command:Command){if(!validCommand(command))throw new Error('Invalid command.');if(command.type==='pace')return this.pace(command.protocol);if(command.type==='stop'){this.stop();return this.now;}this.intervene(command);return this.now;}
+ applyCommand(command:Command){if(!validCommand(command))throw new Error('Invalid command.');if(command.type==='pace')return this.pace(command.protocol);if(command.type==='stop'){this.stop();return this.now;}if(validDiagnostic(command))throw new Error('Open an advanced case to use this maneuver.');this.intervene(command);return this.now;}
  isPacing(){return this.queue.some(e=>e.type==='pace'&&e.generation===this.generation);}
  metrics(){const ventricular=this.events.filter(e=>e.kind==='activation'&&e.node==='V').slice(-5);if(ventricular.length&&this.now-ventricular.at(-1)!.t>2500)return {cl:0,rate:0,regular:false};const intervals=ventricular.slice(1).map((e,i)=>e.t-ventricular[i].t);const cl=intervals.length?Math.round(intervals.reduce((a,b)=>a+b,0)/intervals.length):800;return{cl,rate:Math.round(60000/cl),regular:intervals.length>=3&&Math.max(...intervals)-Math.min(...intervals)<10};}
  snapshot(){return {caseId:this.caseId,now:this.now,commands:this.commands};}
+}
+
+/** Route existing cases through their original network to preserve saved-study behavior. */
+export class Engine {
+ private core:LegacyEngine|DiagnosticEngine;
+ constructor(caseId='avnrt-01'){this.core=CASES.find(c=>c.id===caseId)?.advanced?new DiagnosticEngine(caseId):new LegacyEngine(caseId);}
+ get now(){return this.core.now;}get events(){return this.core.events;}get commands(){return this.core.commands;}get definition(){return this.core.definition;}get caseId(){return this.core.caseId;}
+ advance(t:number){this.core.advance(t);}pace(p:Protocol,record=true){return this.core.pace(p,record);}stop(record=true){this.core.stop(record);}
+ intervene(a:TherapyAction,record=true){this.core.intervene(a,record);}applyCommand(c:Command){return this.core.applyCommand(c);}
+ isPacing(){return this.core.isPacing();}metrics(){return this.core.metrics();}snapshot(){return this.core.snapshot();}therapyState(){return this.core.therapyState();}
+ diagnostic(a:DiagnosticAction){if(this.core instanceof DiagnosticEngine)this.core.diagnostic(a);else if(a.type==='maneuver'&&['vop','aop','incremental'].includes(a.maneuver))this.core.pace({site:a.maneuver==='vop'?'RVA':'HRA',s1:a.cycle,beats:a.beats,s2:null,output:a.output,width:1});else throw new Error('This maneuver requires one of the advanced diagnostic cases.');}
+ diagnosticState(){return this.core instanceof DiagnosticEngine?this.core.diagnosticState():{...EMPTY_DIAGNOSTIC,busy:this.core.isPacing()};}
 }

@@ -7,7 +7,7 @@ test('intracardiac filter changes waveforms while surface ECG is unchanged',()=>
 
 test('catalog covers all standard ECG leads and every adjacent pair on the four catheters',()=>{
  const labels=CHANNELS.map(c=>c.label);
- assert.equal(new Set(CHANNELS.map(c=>c.id)).size,30);
+ assert.equal(new Set(CHANNELS.map(c=>c.id)).size,31);
  assert.deepEqual(CHANNELS.filter(c=>c.kind==='surface').map(c=>c.id).sort(),['I','II','III','aVR','aVL','aVF','V1','V2','V3','V4','V5','V6'].sort());
  for(const [catheter,poles] of [['CS',10],['HRA',4],['His',4],['RV',4]] as const)
   for(let low=1;low<poles;low++)assert.ok(labels.includes(`${catheter} ${low}–${low+1}`));

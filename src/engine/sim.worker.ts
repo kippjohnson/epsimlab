@@ -5,7 +5,7 @@ let engine=new Engine();let synth=new Synthesizer();let paused=false;let pending
 function tick(duration=50){const start=engine.now;
  while(pendingReplay.length&&pendingReplay[0].t<=start+duration){const cmd=pendingReplay.shift()!;engine.advance(cmd.t);const until=engine.applyCommand(cmd);if(cmd.type==='pace'||cmd.type==='stop')pacingUntil=until;}
  engine.advance(start+duration);const recent=engine.events.slice(eventCursor);eventCursor=engine.events.length;const data=synth.render(start,engine.now,recent);
- postMessage({type:'frame',start,end:engine.now,data,events:recent,metrics:engine.metrics(),therapy:engine.therapyState(),pacing:engine.isPacing(),replay:replayEnd>engine.now},data.map(d=>d.buffer));
+ postMessage({type:'frame',start,end:engine.now,data,events:recent,metrics:engine.metrics(),therapy:engine.therapyState(),diagnostic:engine.diagnosticState(),pacing:engine.isPacing(),replay:replayEnd>engine.now},data.map(d=>d.buffer));
  if(replayEnd&&engine.now>=replayEnd){paused=true;replayEnd=0;postMessage({type:'replay-complete'});}
 }
 onmessage=(message)=>{const m=message.data;try{
@@ -13,6 +13,7 @@ onmessage=(message)=>{const m=message.data;try{
  if(m.type==='pause')paused=m.value;
  if(m.type==='pace'){pacingUntil=engine.pace(m.protocol as Protocol);}
  if(m.type==='stop'){engine.stop();pacingUntil=0;}
+ if(m.type==='diagnostic')engine.diagnostic(m.action);
  if(m.type==='therapy'){engine.intervene(m.action);}
  if(m.type==='speed')speed=m.value===5?5:1;
  if(m.type==='band')synth.setBand(m.band);

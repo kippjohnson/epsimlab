@@ -8,7 +8,7 @@ const act=(e:Engine,node:string)=>e.events.filter(x=>x.kind==='activation'&&x.no
 const intervals=(xs:{t:number}[])=>xs.slice(1).map((x,i)=>x.t-xs[i].t);
 
 test('five visible cases have distinct mechanisms; legacy AVNRT studies remain compatible',()=>{
- const visible=CASES.filter(c=>!c.legacy);assert.equal(visible.length,5);assert.equal(new Set(visible.map(c=>c.mechanism)).size,5);
+ const visible=CASES.filter(c=>!c.legacy&&!c.advanced);assert.equal(visible.length,5);assert.equal(new Set(visible.map(c=>c.mechanism)).size,5);
  assert.ok(isCompatibleSession('0.1.0','avnrt-02'));assert.ok(isCompatibleSession('0.2.0','af-01'));
  assert.equal(isCompatibleSession('0.1.0','af-01'),false);assert.equal(isCompatibleSession('9.0.0','avnrt-01'),false);assert.throws(()=>new Engine('unknown'));
 });
@@ -35,7 +35,7 @@ test('AF has irregular local atrial and ventricular intervals and changing cathe
  assert.equal(assess('af','af',TEACHING.af.keyEvidence,e.events).correct,true);
 });
 test('each case rubric accepts collected evidence and rejects wrong diagnoses and unsupported claims',()=>{
- for(const c of CASES.filter(c=>!c.legacy)){const e=new Engine(c.id);e.advance(6000);const lesson=TEACHING[c.mechanism];if(lesson.protocol)e.pace(lesson.protocol);e.advance(24000);
+ for(const c of CASES.filter(c=>!c.legacy&&!c.advanced)){const e=new Engine(c.id);e.advance(6000);const lesson=TEACHING[c.mechanism];if(lesson.protocol)e.pace(lesson.protocol);e.advance(24000);
  assert.equal(assess(c.mechanism,c.mechanism,lesson.keyEvidence,e.events).correct,true,c.id);
  assert.equal(assess(c.mechanism,'sinus',lesson.keyEvidence,e.events).correct,false);
  assert.equal(assess(c.mechanism,c.mechanism,lesson.keyEvidence.slice(0,1),e.events).correct,false);
@@ -48,11 +48,11 @@ test('a guessed mechanism or failed capture cannot substitute for observed pacin
  at.pace({...TEACHING.at.protocol!,output:.1});at.advance(16000);assert.equal(observations(at.events).find(f=>f.id==='independent')?.valid,false);
 });
 test('new cases replay exactly with different time chunking, including AF after pacing and stopping',()=>{
- for(const c of CASES.filter(c=>c.mechanism!=='avnrt')){const a=new Engine(c.id);a.advance(6230);a.pace({site:'RVA',s1:270,beats:8,s2:null,output:5,width:1});a.advance(7200);a.stop();a.advance(12340);a.pace({site:'HRA',s1:500,beats:4,s2:280,output:5,width:1});a.advance(20000);
+ for(const c of CASES.filter(c=>!c.advanced&&c.mechanism!=='avnrt')){const a=new Engine(c.id);a.advance(6230);a.pace({site:'RVA',s1:270,beats:8,s2:null,output:5,width:1});a.advance(7200);a.stop();a.advance(12340);a.pace({site:'HRA',s1:500,beats:4,s2:280,output:5,width:1});a.advance(20000);
  const b=new Engine(c.id);for(const cmd of a.commands){while(b.now+37<cmd.t)b.advance(b.now+37);b.advance(cmd.t);if(cmd.type==='pace')b.pace(cmd.protocol);else b.stop();}b.advance(a.now);assert.deepEqual(b.events,a.events,c.id);assert.deepEqual(b.metrics(),a.metrics());}
 });
 test('all case waveforms remain finite and frame-continuous with phenotype-specific signals',()=>{
  const samples=(id:string,chunk:number)=>{const e=new Engine(id),s=new Synthesizer(),data:number[][]=Array.from({length:CHANNELS.length},()=>[]);for(let t=0;t<1200;t+=chunk){const n=e.events.length;e.advance(t+chunk);s.render(t,t+chunk,e.events.slice(n)).forEach((x,i)=>data[i].push(...x));}return data;};
- for(const c of CASES.filter(c=>!c.legacy)){const a=samples(c.id,50),b=samples(c.id,100);assert.deepEqual(a,b,c.id);assert.ok(a.flat().every(Number.isFinite));}
+ for(const c of CASES.filter(c=>!c.legacy&&!c.advanced)){const a=samples(c.id,50),b=samples(c.id,100);assert.deepEqual(a,b,c.id);assert.ok(a.flat().every(Number.isFinite));}
  assert.notDeepEqual(samples('af-01',50)[2],samples('flutter-01',50)[2]);
 });

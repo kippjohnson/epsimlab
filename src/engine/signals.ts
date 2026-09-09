@@ -17,7 +17,8 @@ export const CHANNELS=[
  {id:'HIS23',label:'His 2–3',color:'#f1c267',kind:'ic'},
  ...[8,7,6,4,3,2].map(low=>({id:'CS'+low+(low+1),label:`CS ${low}–${low+1}`,color:'#b482e4',kind:'ic' as const})),
  {id:'RV23',label:'RV 2–3',color:'#69d7aa',kind:'ic'},
- {id:'RV34',label:'RV 3–4',color:'#69d7aa',kind:'ic'}
+ {id:'RV34',label:'RV 3–4',color:'#69d7aa',kind:'ic'},
+ {id:'MAP',label:'MAP 1–2',color:'#ffb275',kind:'ic'}
 ] as const;
 export const SURFACE_IDS=['I','II','III','aVR','aVL','aVF','V1','V2','V3','V4','V5','V6'];
 export const CATHETER_GROUPS=[
@@ -25,6 +26,7 @@ export const CATHETER_GROUPS=[
  {name:'His bundle',ids:['HISp','HIS23','HISd']},
  {name:'Coronary sinus',ids:['CSp','CS89','CS78','CS67','CSm','CS45','CS34','CS23','CSd']},
  {name:'Right ventricle',ids:['RV34','RV23','RV']},
+ {name:'Mapping catheter',ids:['MAP']},
 ];
 export const DISPLAY_IDS=[...SURFACE_IDS,...CATHETER_GROUPS.flatMap(g=>g.ids)];
 export const DEFAULT_TRACE_IDS=['II','V1','HRA','HISp','HISd','CSp','CS78','CSm','CS34','CSd','RV'];
@@ -55,6 +57,7 @@ const CHEST_TEMPLATES:Record<string,number[]>={V2:[.08,.4,-.85,.16],V3:[.1,.7,-.
 /** Authored lead templates, not a patient-specific 12-lead forward model. */
 function surfaceContribution(id:string,e:LabEvent,t:number):number{
  const d=t-e.t;if(d<0||d>420)return 0;
+ if(e.kind==='activation'&&e.node==='V'&&e.morphology)return ventricularTemplate(id,e,d);
  const ii=legacyContribution(0,e,t);
  if(id==='II')return ii;
  if(id==='V1')return legacyContribution(1,e,t);
@@ -71,9 +74,22 @@ function surfaceContribution(id:string,e:LabEvent,t:number):number{
  if(e.node==='V')return -.035*g(d,6,2)+r*g(d,16,3)+s*g(d,25,4)+tw*g(d,230,40);
  return 0;
 }
+/** Broad-complex teaching templates; no claim of diagnostic 12-lead localization accuracy. */
+function ventricularTemplate(id:string,e:LabEvent,d:number){
+ const m=e.morphology,wide=m==='fascicular'?1:m==='preexcited'?1.15:1.4;
+ const profile=m==='rvot'?[.65,1.1,-1]:m==='fascicular'?[.8,-.65,1]:m==='scar'?[-.5,-.85,-1]:m==='preexcited'?[.6,.9,-.5]:[-.35,.65,-.9];
+ const shape=(amp:number)=>amp*(.9*g(d,45*wide,12*wide)-.18*g(d,80*wide,10*wide))-.2*amp*g(d,280,45);
+ const site=e.paceSite??0,variation=site===0?1:1-site*.09;
+ const i=shape(profile[0]*variation),ii=shape(profile[1]);
+ if(id==='I')return i;if(id==='II')return ii;if(id==='III')return ii-i;if(id==='aVR')return -(i+ii)/2;if(id==='aVL')return i-ii/2;if(id==='aVF')return ii-i/2;
+ const lead=Number(id.slice(1)),amp=profile[2]*(1-(lead-1)*.35)*variation;
+ return shape(amp)+(m==='preexcited'?.16*g(d,15,14):0);
+}
 const csPosition:Record<string,number>={CSp:0,CS89:.25,CS78:.5,CS67:.75,CSm:1,CS45:1.25,CS34:1.5,CS23:1.75,CSd:2};
 export function contribution(channel:number,e:LabEvent,t:number):number{
  const c=CHANNELS[channel];if(!c)return 0;
+ if(c.id==='MAP')return e.kind==='local'?(t<e.t||t-e.t>420?0:bipole(t-e.t,e.voltage??1,1.8)):e.kind==='stimulus'?legacyContribution(8,e,t):0;
+ if(e.kind==='local')return 0;
  if(c.kind==='surface')return surfaceContribution(c.id,e,t);
  if(channel<9)return legacyContribution(channel,e,t);
  const d=t-e.t;if(d<0||d>420)return 0;
@@ -99,7 +115,7 @@ export function contribution(channel:number,e:LabEvent,t:number):number{
 }
 function background(channel:number,t:number):number{
  const noise=(ch:number)=>.003*Math.sin(t*.071+ch*3)+.002*Math.sin(t*.137+ch);
- const c=CHANNELS[channel];if(c.kind==='ic')return noise(channel);
+ const c=CHANNELS[channel];if(c.id==='MAP')return 0;if(c.kind==='ic')return noise(channel);
  const ii=noise(0)+.015*Math.sin(t*.0015),i=noise(9)+.01*Math.sin(t*.0015);
  if(c.id==='II')return ii;
  if(c.id==='I')return i;
@@ -119,5 +135,5 @@ export class Synthesizer {
  private filters:{hp:Biquad;lp:Biquad}[]=[]; private history:LabEvent[]=[];
  constructor(public band:'standard'|'narrow'='standard'){this.setBand(band);}
  setBand(band:'standard'|'narrow'){this.band=band;this.filters=CHANNELS.map(c=>({hp:new Biquad('high',c.kind==='surface'?.5:band==='standard'?30:100),lp:new Biquad('low',c.kind==='surface'?150:band==='standard'?500:300)}));}
- render(start:number,end:number,events:LabEvent[]){this.history.push(...events.filter(e=>e.kind==='activation'||e.kind==='stimulus'||e.kind==='shock'));this.history=this.history.filter(e=>e.t>=start-450);const n=Math.round((end-start)*FS/1000),data=CHANNELS.map(()=>new Float32Array(n));for(let i=0;i<n;i++){const t=start+i*1000/FS;for(let ch=0;ch<CHANNELS.length;ch++){let v=background(ch,t);for(const e of this.history)v+=contribution(ch,e,t);data[ch][i]=this.filters[ch].lp.process(this.filters[ch].hp.process(v));}}return data;}
+ render(start:number,end:number,events:LabEvent[]){this.history.push(...events.filter(e=>e.kind==='activation'||e.kind==='stimulus'||e.kind==='shock'||e.kind==='local'));this.history=this.history.filter(e=>e.t>=start-450);const n=Math.round((end-start)*FS/1000),data=CHANNELS.map(()=>new Float32Array(n));for(let i=0;i<n;i++){const t=start+i*1000/FS;for(let ch=0;ch<CHANNELS.length;ch++){let v=background(ch,t);for(const e of this.history)v+=contribution(ch,e,t);data[ch][i]=this.filters[ch].lp.process(this.filters[ch].hp.process(v));}}return data;}
 }

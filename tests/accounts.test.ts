@@ -111,6 +111,13 @@ test('accounts integrate with real D1: activation, permissions, recovery and pri
   assert.equal((await call('/api/studies','DELETE',{id:studyId},otherCookie)).status,404);
   assert.equal((await call('/api/session','GET',undefined,userCookie)).status,410);
  });
+ await check('advanced diagnostic study commands save privately without version loss',async()=>{
+  const study={title:'Diagnostic curriculum test',engineVersion:'0.4.0',snapshot:{caseId:'scar-vt',now:6000,commands:[{t:0,type:'map',site:1},{t:500,type:'collect-map'},{t:1000,type:'maneuver',maneuver:'entrain',cycle:390,beats:8,output:5,coupling:20,site:'apex',capture:'his-rv'},{t:5000,type:'lesion',duration:10,contact:1}]},measurements:[]};
+  const saved=await call('/api/studies','POST',study,userCookie);assert.equal(saved.status,201,JSON.stringify(saved.data));const id=saved.data.study.id;
+  const loaded=await call('/api/studies?id='+id,'GET',undefined,userCookie);assert.deepEqual(loaded.data.study.snapshot,study.snapshot);assert.equal(loaded.data.study.engineVersion,'0.4.0');
+  assert.equal((await call('/api/studies?id='+id,'GET',undefined,otherCookie)).status,404);assert.equal((await call('/api/studies','POST',{...study,engineVersion:'0.3.0'},userCookie)).status,400);
+  assert.equal((await call('/api/studies','DELETE',{id},userCookie)).status,200);
+ });
  await check('requests are private and invitations can be replaced and revoked',async()=>{
   for(const email of [user.email,'unknown@example.com'])assert.equal((await call('/api/password-reset-requests','POST',{email})).status,201);
   assert.equal((await call('/api/access-requests','POST',{email:'new@example.com',name:'New Fellow'})).status,410);

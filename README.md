@@ -1,12 +1,12 @@
 # EPSimLab — diagnostic simulator preview
 
-A working React/TypeScript application with five deterministic teaching scenarios, intracardiac recordings, programmed stimulation, calipers, evidence-based diagnosis, and session replay. Cloudflare Workers serves the application; Better Auth and D1 provide user accounts and private study storage.
+A working React/TypeScript application with fifteen deterministic teaching scenarios, intracardiac recordings, programmed stimulation, calipers, evidence-based diagnosis, and session replay. Cloudflare Workers serves the application; Better Auth and D1 provide user accounts and private study storage.
 
 ## Website and simulator
 
 Landing page: [epsimlab.com](https://epsimlab.com). Source: [kippjohnson/epsimlab](https://github.com/kippjohnson/epsimlab).
 
-Open [EPSimLab](https://app.epsimlab.com) in Safari or another modern browser. Deployed September 8, 2026, including five diagnostic cases, a guided introduction, 3D anatomy, and the mobile study workspace. Release 0.6 adds a treatment lab with drugs, synchronized cardioversion, and RF ablation. Module 0 provides five foundational lessons, interactive timing diagrams, thirteen knowledge checks, and private account learning progress. Guests can explore every case; saving or exporting progress requires an account.
+Open [EPSimLab](https://app.epsimlab.com) in Safari or another modern browser. Deployed September 8, 2026, including five diagnostic cases, a guided introduction, 3D anatomy, and the mobile study workspace. Release 0.7 adds ten advanced cases, diagnostic pacing, discrete-site activation and voltage mapping, pace-map comparison, and lesion reassessment. The treatment lab includes drugs, synchronized cardioversion, and teaching ablation. Module 0 provides five foundational lessons, interactive timing diagrams, thirteen knowledge checks, and private account learning progress. Guests can explore every case; saving or exporting progress requires an account.
 
 ## Open immediately
 
@@ -38,9 +38,15 @@ Guests keep answers only in memory for the current session. Signed-in learners c
 
 Select **Take a guided tour** for seven steps through the actual workspace: the purpose of an EP study, catheters, signal rows, intervals, pacing, frozen evidence, and diagnosis. Actions open the corresponding controls without resetting the case. **Guide** also offers a searchable glossary and educational sources.
 
-**Guided** mode shows a case coach with observations to make and an appropriate action. **Challenge** hides the coach and diagnosis labels in the case chooser. Five scenarios cover AVNRT, orthodromic AVRT, focal AT, typical flutter, and AF; this is a foundational teaching selection rather than a prevalence ranking. Cases 2–5 begin during the clinical rhythm. Flutter and AF open at slower sweep speeds to show more cycles.
+**Guided** mode shows a case coach with observations to make and an appropriate action. **Challenge** hides the coach and diagnosis labels in the case chooser. Five foundational scenarios cover AVNRT, orthodromic AVRT, focal AT, typical flutter, and AF; this is a foundational teaching selection rather than a prevalence ranking. Cases 2–5 begin during the clinical rhythm. Flutter and AF open at slower sweep speeds to show more cycles.
 
 Each worksheet checks selected observations against retained events. Two key observations are required and unsupported selections are identified individually. Feedback is fixed when submitted so it does not change as acquisition continues. Scoring is educational, not a validated assessment rubric. See [case definitions and validation](docs/cases-and-learning.md).
+
+## Advanced diagnostic curriculum
+
+Ten additional cases cover atypical AVNRT, septal AVRT, His–Purkinje disease, manifest pre-excitation, PJRT, adenosine-sensitive AT, perimitral atrial reentry, RVOT arrhythmia, fascicular VT, and scar-related VT. Open **Cases**, select a study, then **Diagnostic maneuvers**. The workspace includes VOP/AOP, His-timed PVCs, para-Hisian capture comparisons, incremental atrial pacing, S3, local entrainment, mapping, and compressed teaching lesions. Guided mode asks for a prediction and offers an explanation after the intervention.
+
+See [diagnostic curriculum and model boundaries](docs/diagnostic-curriculum.md) for case-specific workflows, validation, and the distinction between reduced network responses and clinical mapping.
 
 ## First study
 
@@ -55,20 +61,20 @@ Space pauses/resumes. F freezes a review segment. Click a channel label to cycle
 
 ## Treatment lab
 
-Select **Treat rhythm** above the recording or **Ablate** in navigation. Live II/His/RV signals remain visible while scrolling treatment controls. Drug challenges include adenosine, esmolol, isoproterenol, and ibutilide with explicit model durations and limitations. Synchronized cardioversion waits for a modeled R peak; it does not remove the underlying substrate.
+Select **Treat rhythm** above the recording or **Ablate** in navigation. Live II/His/RV signals remain visible while scrolling treatment controls. Drug challenges include adenosine, esmolol, isoproterenol, ibutilide, and verapamil with explicit model durations and limitations. Synchronized cardioversion waits for a modeled R peak; it does not remove the underlying substrate.
 
 RF ablation supports slow-pathway modification, a concealed left lateral accessory connection, a focal RA driver, and a three-segment CTI line. Choose a target in the 3D view or selector, adjust power/duration/contact, deliver or stop RF, and test the result. Incomplete contact produces less tissue effect, a CTI gap maintains conduction, and His-region injury causes AV block with a ventricular escape. CTI directional probes are abstract conduction calculations, not a full differential-pacing recording. AF ablation is not implemented.
 
-These are original teaching demonstrations, not prescribing or procedural guidance. Drug kinetics and lesion thresholds are deliberately simplified. Treatments, tests, and interruption commands persist in study snapshots and replay with engine version 0.3.0. Old 0.2.0 and eligible 0.1.0 studies remain supported. See [treatment model and verification](docs/treatment-lab.md).
+These are original teaching demonstrations, not prescribing or procedural guidance. Drug kinetics and lesion thresholds are deliberately simplified. Treatments, tests, and interruption commands persist in study snapshots and replay with engine version 0.4.0. Original-case 0.3.0, 0.2.0 and eligible 0.1.0 studies remain supported. See [treatment model and verification](docs/treatment-lab.md).
 
 ## Current implementation
 
 - React interface, responsive layouts, interactive schematic 3D heart and fixed catheter models.
 - TypeScript event scheduler running in an inline Web Worker.
 - Stable event order, tissue refractoriness, two AV nodal pathways, shared pathway recovery, and paced capture.
-- Programmable HRA/RV pacing, S1 trains and optional S2, output and width, stop control.
+- Programmable HRA/RV pacing, S1 trains and optional S2/S3, output and width, stop control.
 - 2 kHz synthetic signals with stateful causal high/low-pass biquads.
-- Nine channels, gain, sweep scale, frozen review, calipers, named measurements.
+- Selectable 12-lead surface ECG, 18 catheter bipolar channels, and a local mapping channel; gain, sweep scale, frozen review, calipers, named measurements.
 - Procedural event log, diagnosis/evidence submission, causal ladder.
 - IndexedDB saves, JSON import/export, deterministic command replay.
 - Hosted offline caching and standalone offline build.

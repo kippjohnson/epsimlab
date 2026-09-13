@@ -194,7 +194,7 @@ function HeartViewport({expanded = false, suspended = false, onExpand, ...props}
     {expanded && <div className="anatomy-catheter-picker" aria-label="3D catheter selection">{CATHETERS.map(catheter =>
       <button key={catheter.id} aria-pressed={props.site === catheter.id} onClick={() => props.onSite(catheter.id)} style={{'--catheter-color': catheter.color} as CSSProperties}><i/><span>{catheter.id}<small>{catheter.poles} electrodes</small></span></button>
     )}</div>}
-    {expanded && <p className="anatomy-selected-detail"><strong style={{color: selected.color}}>{selected.label}</strong>{selected.detail}{props.site === 'His' || props.site === 'CS' ? ' · Recording only in this release' : ''}</p>}
+    {expanded && <p className="anatomy-selected-detail"><strong>{selected.label}</strong>{selected.detail}{props.site === 'His' || props.site === 'CS' ? ' · Recording only in this release' : ''}</p>}
     <div className="anatomy-model-note">{props.ablation?'Schematic targets · orange ablation catheter · red established lesions':'Schematic 3D anatomy · fixed catheter positions'}</div>
   </div>;
 }

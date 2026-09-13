@@ -30,7 +30,7 @@ export function Traces({recording,end,sweep,gain,gains,onGain,calipers,onMeasure
    lastPaint=stamp;
    if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);}
    const ctx=cv.getContext('2d')!;ctx.setTransform(dpr,0,0,dpr,0,0);
-   ctx.fillStyle='#0b1017';ctx.fillRect(0,0,w,h);
+   ctx.fillStyle='#14181e';ctx.fillRect(0,0,w,h);
    const p=latest.current,channels=p.channels;
    const duration=w/(p.sweep*3.2)*1000,finish=p.end??recording.end,start=finish-duration;
    bounds.current={start,end:finish,width:w,height:h,left:cv.getBoundingClientRect().left};
@@ -39,13 +39,13 @@ export function Traces({recording,end,sweep,gain,gains,onGain,calipers,onMeasure
    const samples=Math.max(1,Math.ceil(duration/w*2));
    const minor=p.sweep>=100?50:100;
    for(let t=Math.ceil(start/minor)*minor;t<finish;t+=minor){
-    const x=px(t);ctx.strokeStyle=t%500===0?'#202b37':'#151e29';ctx.lineWidth=1;
+    const x=px(t);ctx.strokeStyle=t%500===0?'#2a323d':'#1d242d';ctx.lineWidth=1;
     ctx.beginPath();ctx.moveTo(Math.round(x)+.5,0);ctx.lineTo(Math.round(x)+.5,h);ctx.stroke();
-    if(t%500===0){ctx.fillStyle='#778494';ctx.font='10px ui-monospace, monospace';ctx.fillText((t/1000).toFixed(1)+'s',x+5,h-7);}
+    if(t%500===0){ctx.fillStyle='#9dabbc';ctx.font='10px ui-monospace, monospace';ctx.fillText((t/1000).toFixed(1)+'s',x+5,h-7);}
    }
    channels.forEach((ch,index)=>{
     const y=row*(index+.5),combinedGain=p.gain*(p.gains[ch]??1),scale=row*.32*combinedGain;
-    ctx.strokeStyle='#17212c';ctx.beginPath();ctx.moveTo(0,row*(index+1));ctx.lineTo(w,row*(index+1));ctx.stroke();
+    ctx.strokeStyle='#222a34';ctx.beginPath();ctx.moveTo(0,row*(index+1));ctx.lineTo(w,row*(index+1));ctx.stroke();
     ctx.save();ctx.beginPath();ctx.rect(0,index*row,w,row);ctx.clip();
     ctx.strokeStyle=CHANNELS[ch].color;ctx.lineWidth=1.1;ctx.beginPath();
     for(let x=0;x<w;x++){
@@ -65,12 +65,12 @@ export function Traces({recording,end,sweep,gain,gains,onGain,calipers,onMeasure
 
    // A separate command trace prevents the square pulse from being read as an EGM.
    const stimBase=signalHeight+25,stimTop=signalHeight+14;
-   ctx.fillStyle='#101923';ctx.fillRect(0,signalHeight,w,STIM_HEIGHT);
-   ctx.strokeStyle='#364651';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,stimBase);ctx.lineTo(w,stimBase);ctx.stroke();
+   ctx.fillStyle='#191e25';ctx.fillRect(0,signalHeight,w,STIM_HEIGHT);
+   ctx.strokeStyle='#657485';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,stimBase);ctx.lineTo(w,stimBase);ctx.stroke();
    const stimuli=recording.events.filter(e=>e.kind==='stimulus'&&e.t+stimulusWidth(e)>=start&&e.t<finish);
    for(const e of stimuli){
     const x=px(e.t),pulsePixels=Math.max(5,px(e.t+stimulusWidth(e))-x),output=stimulusOutput(e);
-    const color=p.annotations?(e.captured?'#79dcc0':'#e58c88'):'#edbd7c';
+    const color=p.annotations?(e.captured?'#79dcc0':'#e58c88'):'#d1b58b';
     ctx.strokeStyle=color;ctx.fillStyle=color;ctx.font='9px ui-monospace, monospace';ctx.lineWidth=1.2;
     ctx.beginPath();ctx.moveTo(x,stimBase);
     if(output>0){ctx.lineTo(x,stimTop);ctx.lineTo(x+pulsePixels,stimTop);ctx.lineTo(x+pulsePixels,stimBase);}
@@ -97,8 +97,8 @@ export function Traces({recording,end,sweep,gain,gains,onGain,calipers,onMeasure
     }
    }
    if(drag.current){
-    const a=px(drag.current.start),b=px(drag.current.end);ctx.fillStyle='#66ddbb12';ctx.fillRect(Math.min(a,b),0,Math.abs(b-a),h-AXIS_HEIGHT);
-    ctx.strokeStyle='#7be1c2';ctx.lineWidth=1;
+    const a=px(drag.current.start),b=px(drag.current.end);ctx.fillStyle='#9bbbdc18';ctx.fillRect(Math.min(a,b),0,Math.abs(b-a),h-AXIS_HEIGHT);
+    ctx.strokeStyle='#9bbbdc';ctx.lineWidth=1;
     for(const x of [a,b]){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h-AXIS_HEIGHT);ctx.stroke();}
     ctx.beginPath();ctx.moveTo(a,22);ctx.lineTo(b,22);ctx.stroke();
    }

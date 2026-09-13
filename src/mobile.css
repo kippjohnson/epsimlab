@@ -21,15 +21,14 @@
 
   .mobile-workspace-nav {
     display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px;
-    position: sticky; top: 0; z-index: 15; padding: 7px 12px;
-    background: #0c1118f5; border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 15; padding: 7px 12px;background:var(--bg); border-bottom: 1px solid var(--border);
   }
   .mobile-workspace-nav button {
     display: flex; align-items: center; justify-content: center; gap: 7px;
     min-height: 44px; padding: 6px 4px; border-radius: 6px;
-    font-size: 12px; background: #121e2a; border: 1px solid #2b3e4d; color: #a8bacb;
+    font-size: 12px;background:var(--panel);border: 1px solid var(--border);color:var(--secondary);
   }
-  .mobile-workspace-nav button[aria-pressed=true] { color: #b0efd9; background: #1c3931; border-color: #4c7969; }
+  .mobile-workspace-nav button[aria-pressed=true] {color:var(--accent);background:var(--accent-soft);border-color:var(--accent); }
   .workspace { display: block; padding: 12px; }
   .workspace .recording-column, .workspace .control-column, .workspace .context-column { width: 100%; min-width: 0; }
   .workspace[data-mobile-panel] > .recording-column,
@@ -102,7 +101,7 @@
   .filter-row select { font-size: 16px; min-height: 44px; }
   .signal-panel { margin-top: 0; }
   .rhythm-card { display: grid; grid-template-columns: 1fr 1fr; padding: 16px; }
-  .rhythm-card > div + div { margin: 0; border-left: 1px solid #2b3b49; padding-left: 20px; }
+  .rhythm-card > div + div { margin: 0;border-left: 1px solid var(--border); padding-left: 20px; }
   .rhythm-card p { font-size: 11px; white-space: normal; line-height: 1.7; margin-top: 5px; }
   .diagnose-button { min-height: 48px; font-size: 13px; }
   .diagnose-hint { font-size: 11px; }
@@ -111,7 +110,7 @@
     inset: auto 0 0; width: 100%; height: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
     padding: 3px max(6px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(6px, env(safe-area-inset-left));
     display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); align-items: center;
-    border-right: 0; border-top: 1px solid #2a3d4b; background: #0d1721; z-index: 30;
+    border-right: 0;border-top: 1px solid var(--border);background:var(--panel); z-index: 30;
   }
   .rail .rail-nav { display: contents; }
   .rail .brand-mark, .rail .rail-divider, .rail .avatar { display: none; }
@@ -123,14 +122,13 @@
     display: grid; grid-template-columns: 58px minmax(0,1fr) 58px; gap: 8px;
     position: fixed; bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
     left: 0; right: 0; z-index: 29; min-height: var(--mobile-controls-height);
-    padding: 7px max(12px,env(safe-area-inset-right)) 7px max(12px,env(safe-area-inset-left));
-    background: #13212ef5; border-top: 1px solid #324858; box-shadow: 0 -6px 22px #0003;
+    padding: 7px max(12px,env(safe-area-inset-right)) 7px max(12px,env(safe-area-inset-left));background:var(--panel);border-top: 1px solid var(--border);box-shadow:0 -6px 22px #2332470d;
   }
-  .mobile-study-controls > button { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; min-height: 50px; padding: 4px; background: #1c2d3d; border: 1px solid #395064; border-radius: 6px; color: #c1d4e3; font-size: 10px; }
-  .mobile-study-controls .mobile-pace { flex-direction: row; gap: 8px; color: #14352b; background: #91d7be; border-color: #91d7be; font-size: 13px; font-weight: 600; }
+  .mobile-study-controls > button { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px; min-height: 50px; padding: 4px;background:var(--surface);border: 1px solid var(--border); border-radius: 6px;color:var(--secondary); font-size: 10px; }
+  .mobile-study-controls .mobile-pace { flex-direction: row; gap: 8px;color:#fff;background:var(--accent);border-color:var(--accent); font-size: 13px; font-weight: 600; }
   .mobile-pace span { min-width: 0; }
   .mobile-pace small { display: block; font-size: 9px; font-weight: 400; margin-top: 3px; overflow-wrap: anywhere; }
-  .mobile-study-controls .mobile-pace.delivering { background: #dfb876; border-color: #dfb876; color: #342716; }
+  .mobile-study-controls .mobile-pace.delivering {background:var(--warning-soft);border-color:var(--warning);color:var(--warning); }
   .app-footer { padding: 20px 14px calc(155px + env(safe-area-inset-bottom)); font-size: 10px; line-height: 1.7; }
   .app-footer > span:last-child { display: none; }
   .onboarding-tip { position: relative; bottom: auto; left: auto; transform: none; width: auto; max-width: none; margin: -145px 12px calc(150px + env(safe-area-inset-bottom)); padding: 12px; z-index: 1; }
@@ -139,7 +137,7 @@
   .toast { left: 12px; right: 12px; bottom: calc(140px + env(safe-area-inset-bottom)); font-size: 12px; padding: 12px; max-width: none; }
 
   dialog.modal, dialog.modal.anatomy-dialog { max-width: calc(100vw - 16px); max-height: calc(100dvh - 24px); }
-  .modal .modal-heading { position: sticky; top: 0; z-index: 3; background: #111c27; padding: 14px 16px; }
+  .modal .modal-heading { position: sticky; top: 0; z-index: 3;background:var(--panel); padding: 14px 16px; }
   .modal-heading h2 { font-size: 18px; }
   .modal .icon-button, .icon-button { min-width: 40px; min-height: 44px; }
   .modal .button { min-height: 44px; font-size: 13px; }
@@ -166,21 +164,21 @@
 @media (max-height: 500px) and (max-width: 1050px) {
   :root { --mobile-nav-height: 48px; --mobile-controls-height: 56px; }
   .topbar, .workspace-heading { display: none; }
-  .mobile-workspace-nav { padding: 4px 12px; }
-  .mobile-workspace-nav button { min-height: 38px; }
+  .mobile-workspace-nav { padding: 4px 12px; ;background:var(--bg)}
+  .mobile-workspace-nav button { min-height: 38px; ;background:var(--panel);color:var(--secondary)}
   .rail .rail-button { min-height: 44px; flex-direction: row; }
-  .mobile-study-controls { grid-template-columns: 90px minmax(0,1fr) 90px; padding-top: 4px; padding-bottom: 4px; }
-  .mobile-study-controls > button { min-height: 46px; flex-direction: row; }
+  .mobile-study-controls { grid-template-columns: 90px minmax(0,1fr) 90px; padding-top: 4px; padding-bottom: 4px; ;background:var(--panel);box-shadow:0 -6px 22px #2332470d}
+  .mobile-study-controls > button { min-height: 46px; flex-direction: row; ;background:var(--surface);color:var(--secondary)}
   .recording-toolbar { flex-wrap: nowrap; }
   .traces { height: 360px; }
   .anatomy3d-expanded .heart-stage { height: 280px; }
 }
 
 @media (max-width: 360px) {
-  .mobile-workspace-nav button { font-size: 11px; gap: 4px; }
+  .mobile-workspace-nav button { font-size: 11px; gap: 4px; ;background:var(--panel);color:var(--secondary)}
   .mobile-workspace-nav button svg { width: 14px; }
-  .mobile-study-controls { grid-template-columns: 48px minmax(0,1fr) 48px; gap: 5px; }
-  .mobile-study-controls .mobile-pace { font-size: 12px; }
+  .mobile-study-controls { grid-template-columns: 48px minmax(0,1fr) 48px; gap: 5px; ;background:var(--panel);box-shadow:0 -6px 22px #2332470d}
+  .mobile-study-controls .mobile-pace { font-size: 12px; ;background:var(--accent);border-color:var(--accent);color:#fff}
   .tabs { gap: 5px; padding: 0 7px; }
   .tabs button { font-size: 10px; }
   .channel-labels { width: 65px; }

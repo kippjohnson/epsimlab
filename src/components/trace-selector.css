@@ -1,13 +1,13 @@
-.trace-selector{padding:20px 25px;color:#b4c5d3;font-size:12px}
+.trace-selector{padding:20px 25px;color:var(--secondary);font-size:12px}
 .trace-selector p{line-height:1.7}
 .trace-presets{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 22px}
 .trace-groups{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.trace-groups fieldset{min-width:0;margin:0;padding:8px;border:1px solid #314353;border-radius:7px}
-.trace-groups legend{padding:0 5px;color:#94aabd;font-size:11px}
-.trace-groups label{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px;cursor:pointer;color:#e0e9f0}
-.trace-groups input{width:18px;height:18px;margin:0;accent-color:var(--mint)}
+.trace-groups fieldset{min-width:0;margin:0;padding:8px;border:1px solid var(--border);border-radius:7px}
+.trace-groups legend{padding:0 5px;color:var(--secondary);font-size:11px}
+.trace-groups label{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px;cursor:pointer;color:var(--text)}
+.trace-groups input{width:18px;height:18px;margin:0;accent-color:var(--accent)}
 .trace-groups i{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-.trace-selection-note{margin-top:18px;color:#8ea7ba;font-size:11px}
+.trace-selection-note{margin-top:18px;color:var(--muted);font-size:11px}
 .trace-groups label:has(input:disabled){cursor:default}
 .traces .channel-labels button{flex:1;min-height:0;height:auto}
 .traces.compact .channel-labels button{height:auto}
@@ -19,3 +19,10 @@
 .trace-viewport .traces{min-height:var(--trace-min-height)}
 .trace-viewport.compact{max-height:190px}
 @media(max-width:760px){.trace-viewport{max-height:60svh}.surface-lead-group .trace-pair-options{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+.trace-groups fieldset{background:var(--panel)}
+.trace-groups label{border-radius:4px}
+.trace-groups label:hover{background:var(--surface)}
+.trace-groups label:has(input:checked){background:var(--accent-soft)}
+.trace-groups label>span{color:var(--text)}
+.trace-groups i{box-shadow:0 0 0 1px var(--muted)}

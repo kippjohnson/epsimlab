@@ -1,10 +1,12 @@
 .trace-viewport .channel-labels { padding-bottom: 56px; }
+
+.traces button:focus-visible { outline-color: #9bbbdc; }
 .trace-viewport .stim-channel-label {
  position: absolute; bottom: 24px; left: 0; right: 0; height: 32px;
  display: flex; justify-content: center; flex-direction: column; gap: 2px;
- padding: 0 7px; border-top: 1px solid #25313f; background: #101923;
- font-family: ui-monospace, monospace; color: #edbd7c;
+ padding: 0 7px; border-top: 1px solid #343c46; background: #191e25;
+ font-family: ui-monospace, monospace; color: #d1b58b;
 }
 .trace-viewport .stim-channel-label span { font-size: 9px; }
-.trace-viewport .stim-channel-label small { font-size: 8px; color: #9e8e78; }
+.trace-viewport .stim-channel-label small { font-size: 8px; color: #c2b095; }
 .trace-viewport.compact { max-height: 226px; }

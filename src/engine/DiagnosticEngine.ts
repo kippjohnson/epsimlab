@@ -1,8 +1,8 @@
 import {analyzeManeuver} from './diagnosticAnalysis.ts';
-import {CASES,validCommand,type Command,type LabEvent,type Protocol,type NodeId} from './model.ts';
+import {CASES,validCommand,type Command,type LabEvent,type Protocol,type NodeId,type PacingSite,type CaptureMode} from './model.ts';
 import {DEFAULT_MANEUVER,EMPTY_DIAGNOSTIC,mapNames,validDiagnostic,type DiagnosticAction,type DiagnosticState,type MapPoint} from './curriculum.ts';
 import {DRUGS,EMPTY_THERAPY,validTherapy,type TherapyAction,type TherapyState,type DrugId} from './therapy.ts';
-type Q={t:number;seq:number;kind:'node'|'sinus'|'focus'|'stim'|'drug-end'|'shock'|'timeout'|'local';node?:string;from?:string;cause?:number;origin?:string;label?:string;generation?:number;cycle?:number;output?:number;capture?:string;site?:number;drug?:DrugId;location?:'apex'|'base'};
+type Q={t:number;seq:number;kind:'node'|'sinus'|'focus'|'stim'|'drug-end'|'shock'|'timeout'|'local';node?:string;from?:string;cause?:number;origin?:string;label?:string;generation?:number;cycle?:number;output?:number;pulseWidth?:number;pacingSite?:PacingSite;capture?:CaptureMode;site?:number;drug?:DrugId;location?:'apex'|'base'};
 /** Reduced excitable network: recovery and competing wavefront arrival determine capture/resetting.
  * Mapping uses seven fixed network locations; it is not a patient-specific anatomical solver. */
 export class DiagnosticEngine {
@@ -38,14 +38,16 @@ export class DiagnosticEngine {
   if(q.kind==='timeout'){if(q.label==='idle'){if(this.tachy&&this.last[this.vt?'V':'A']===q.cause){this.tachy=false;this.note('Sustained activation ceased · reassess the substrate.');}return;}if(q.label==='PVC'&&q.generation===this.pvcToken&&this.pendingPVC){this.pendingPVC=null;this.note('PVC cancelled: no antegrade His event within 3 s.');}else if(q.label==='shock'&&this.shock){this.shock=false;this.note('Cardioversion cancelled: no ventricular trigger.');}return;}
   if(q.kind==='stim'){
    if(q.generation!==this.generation)return;
-   const node=q.node!,threshold=node==='A'?.9:1.2,captured=(q.output??5)>=threshold&&q.t-(this.last[node]??-1e9)>=this.erp(node);
-   const cause=this.record({t:q.t,kind:'stimulus',node:node==='A'?'A':node==='V'?'V':undefined,label:q.label??'S1',captured,site:q.site,origin:q.origin});
-   if(!captured){this.note((q.output??5)<threshold?'No capture · output below threshold':'No capture · tissue refractory');return;}
+   const node=q.node!,pulseWidth=q.pulseWidth??1,output=q.output??5,threshold=(node==='A'?.9:1.2)*(.5+.5/pulseWidth),captured=output>=threshold&&q.t-(this.last[node]??-1e9)>=this.erp(node);
+   // The requested capture setting is only achieved if the additional tissue has recovered.
+   const captureMode=!captured||!q.capture?undefined:q.capture==='his-rv'&&q.t-(this.last.H??-1e9)>=this.erp('H')?'his-rv':q.capture==='atrial'&&q.t-(this.last.A??-1e9)>=this.erp('A')?'atrial':'rv';
+   const cause=this.record({t:q.t,kind:'stimulus',node:node==='A'?'A':node==='V'?'V':undefined,label:q.label??'S1',captured,site:q.site,origin:q.origin,pulseWidth,output,pacingSite:q.pacingSite,...(captureMode?{captureMode}:{})});
+   if(!captured){this.note(output<threshold?'No capture · output below threshold':'No capture · tissue refractory');return;}
    if(q.label==='His-timed PVC'){const refractory=q.t-(this.last.H??-1e9)<this.erp('H');this.note(`PVC captured · ${Math.round(q.t-(this.last.H??q.t))} ms after H · His ${refractory?'refractory':'recovered'}`,refractory?'hisPVC':undefined);}
    if(node==='A'&&['S2','S3'].includes(q.label??'')&&this.m==='wpw'&&!this.cured&&q.t+35-(this.last.AP??-1e9)<this.erp('AP')){this.tachy=true;this.note('Premature atrial capture encounters antegrade pathway refractoriness.');}
-   this.node({...q,kind:'node',cause,origin:'paced'});
-   if(q.capture==='his-rv')this.node({...q,kind:'node',node:'H',from:'V',cause,origin:'paced'});
-   if(q.capture==='atrial'){this.node({...q,kind:'node',node:'A',cause,origin:'paced'});this.note('Direct atrial capture: do not interpret this as a valid para-Hisian comparison.');}
+   this.node({...q,kind:'node',cause,origin:'paced',capture:captureMode});
+   if(captureMode==='his-rv')this.node({...q,kind:'node',node:'H',from:'V',cause,origin:'paced'});
+   if(captureMode==='atrial'){this.node({...q,kind:'node',node:'A',cause,origin:'paced'});this.note('Direct atrial capture: do not interpret this as a valid para-Hisian comparison.');}
    return;
   }
   if(q.kind==='local'){if(q.site===this.selected)this.local(q,q.node!);return;}
@@ -58,11 +60,12 @@ export class DiagnosticEngine {
   this.last[node]=q.t;
   if(node===(this.vt?'V':'A')&&this.tachy)this.add({t:q.t+2000,kind:'timeout',label:'idle',cause:q.t});
   if(['A','H','V'].includes(node)){
-   const morphology=node==='V'?(q.from==='AP'?'preexcited':this.vt&&(this.tachy||q.origin==='paced')?this.m:q.origin==='paced'&&!q.from?'paced':undefined):undefined;
+   const directVentricularCapture=node==='V'&&q.origin==='paced'&&!q.from;
+   const morphology=node==='V'?(directVentricularCapture?'paced':q.from==='AP'?'preexcited':this.vt&&q.from?.startsWith('F')?this.m:undefined):undefined;
    const evidence=node==='V'&&q.from==='AP'?'preexcitation':undefined;
    const atrialPattern=node==='A'&&q.origin!=='sinus'&&!(q.origin==='paced'&&!q.from)?(this.m==='sensitive'?'focal':this.m==='macro'?'flutter':undefined):undefined;
-   q.cause=this.record({t:q.t,kind:'activation',node:node as NodeId,from:['A','H','V'].includes(q.from??'')?q.from as NodeId:undefined,cause:q.cause,label:`${node} ${q.origin??'conducted'} activation`,origin:q.origin,...(morphology?{morphology:morphology as LabEvent['morphology']}:{}) ,...(evidence?{evidence}:{}),...(node==='V'&&q.origin==='paced'&&(!q.from||q.from.startsWith('F'))?{paceSite:q.from?.startsWith('F')?Number(q.from.slice(1)):6}:{}),...(atrialPattern?{atrialPattern}:{}),...(node==='A'&&this.ap&&q.from==='AP'?{atrialDelays:[20,0,0,8,18,28]}:{})});
-   if(node==='H'&&q.from!=='V'&&this.pendingPVC){const p=this.pendingPVC;this.pendingPVC=null;this.add({t:q.t+p.coupling,kind:'stim',node:'V',output:p.output,generation:this.generation,label:'His-timed PVC',origin:p.site,location:p.site});}
+   q.cause=this.record({t:q.t,kind:'activation',node:node as NodeId,from:['A','H','V'].includes(q.from??'')?q.from as NodeId:undefined,cause:q.cause,label:`${node} ${q.origin??'conducted'} activation`,origin:q.origin,...(morphology?{morphology:morphology as LabEvent['morphology']}:{}) ,...(q.pacingSite?{pacingSite:q.pacingSite}:{}),...(directVentricularCapture&&q.capture?{captureMode:q.capture}:{}),...(evidence?{evidence}:{}),...(node==='V'&&q.origin==='paced'&&(!q.from||q.from.startsWith('F'))?{paceSite:q.from?.startsWith('F')?Number(q.from.slice(1)):6}:{}),...(atrialPattern?{atrialPattern}:{}),...(node==='A'&&this.ap&&q.from==='AP'?{atrialDelays:[20,0,0,8,18,28]}:{})});
+   if(node==='H'&&q.from!=='V'&&this.pendingPVC){const p=this.pendingPVC;this.pendingPVC=null;this.add({t:q.t+p.coupling,kind:'stim',node:'V',output:p.output,pulseWidth:1,pacingSite:p.site==='base'?'RV-base':'RVA',generation:this.generation,label:'His-timed PVC',origin:p.site,location:p.site});}
    if(node==='V'&&this.shock){this.shock=false;this.add({t:q.t+16,kind:'shock'});}
   }
   if(node==='F'+this.selected)this.local(q,node);
@@ -98,7 +101,7 @@ export class DiagnosticEngine {
   if(node==='P')this.edge(q,'V',0);
   if(node==='V'){
    if(this.ap&&!this.cured&&q.from!=='AP')this.edge(q,'AP',q.origin==='paced'&&!q.from?(q.location==='base'?0:5):0);
-   if(q.origin==='paced'&&!q.from||!this.tachy)this.edge(q,'H',q.origin==='paced'&&q.capture==='his-rv'?0:q.location==='base'?40:70);
+   if((q.origin==='paced'&&!q.from||!this.tachy)&&q.capture!=='his-rv')this.edge(q,'H',q.location==='base'?40:70);
    if(this.vt&&q.origin==='paced'&&!q.from&&this.ring&&this.tachy)this.edge(q,'F0',this.m==='scar'?95:65);
    if(this.vt&&!this.ring&&q.origin!=='local-only'){const offset=this.selected===0?0:this.selected*8;this.add({t:q.t+offset,kind:'node',node:'F'+(this.selected||6),origin:'local-only'});}
   }
@@ -111,9 +114,10 @@ export class DiagnosticEngine {
   const voltage=this.m==='scar'?[.65,.25,.8,1.1,.9,.08,.7][this.selected]:1.2-this.selected*.08;
   this.record({t:q.t,kind:'local',site:this.selected,node:this.vt?'V':'A',label:mapNames(this.m)[this.selected]+' · local electrogram',voltage,cause:q.cause,evidence:this.m==='fascicular'&&node.startsWith('F')?'purkinje':undefined});
  }
- pace(p:Protocol,record=true){if(!validCommand({type:'pace',t:this.now,protocol:p}))throw new Error('Invalid pacing protocol.');if(record)this.commands.push({t:this.now,type:'pace',protocol:{...p}});this.generation++;let t=this.now+100;
-  for(let i=0;i<p.beats;i++)this.add({t:t+i*p.s1,kind:'stim',node:p.site==='HRA'?'A':'V',output:p.output/(.5+.5/p.width),generation:this.generation,label:`S1 · ${i+1}/${p.beats}`});
-  t+=(p.beats-1)*p.s1;if(p.s2!==null){t+=p.s2;this.add({t,kind:'stim',node:p.site==='HRA'?'A':'V',output:p.output/(.5+.5/p.width),generation:this.generation,label:'S2'});if(p.s3!=null){t+=p.s3;this.add({t,kind:'stim',node:p.site==='HRA'?'A':'V',output:p.output/(.5+.5/p.width),generation:this.generation,label:'S3'});}}
+ pace(p:Protocol,record=true){if(!validCommand({type:'pace',t:this.now,protocol:p}))throw new Error('Invalid pacing protocol.');if(record)this.commands.push({t:this.now,type:'pace',protocol:{...p}});this.generation++;this.pendingPVC=null;let t=this.now+100;
+  const stimulus={kind:'stim' as const,node:p.site==='HRA'?'A':'V',output:p.output,pulseWidth:p.width,pacingSite:p.site,generation:this.generation};
+  for(let i=0;i<p.beats;i++)this.add({...stimulus,t:t+i*p.s1,label:`S1 · ${i+1}/${p.beats}`});
+  t+=(p.beats-1)*p.s1;if(p.s2!==null){t+=p.s2;this.add({...stimulus,t,label:'S2'});if(p.s3!=null){t+=p.s3;this.add({...stimulus,t,label:'S3'});}}
   this.note(`${p.site} programmed stimulation · ${p.s1} ms`);return t;
  }
  diagnostic(action:DiagnosticAction,record=true){if(!validDiagnostic(action))throw new Error('Invalid diagnostic command.');if(action.type==='maneuver'&&['induce','entrain','pacemap'].includes(action.maneuver)&&this.m==='conduction')throw new Error('Use programmed or incremental atrial pacing in this conduction study.');if(action.type==='maneuver'&&action.maneuver==='parahis'&&this.tachy)throw new Error('Para-Hisian pacing requires sinus rhythm here. Cardiovert first, then compare His+RV and RV-only capture.');if(action.type==='lesion'&&this.m==='conduction')throw new Error('No ablation target in this conduction study.');if(action.type==='maneuver'){const previous=analyzeManeuver(this.events,this.commands,this.now,this.isPacing());if(previous)this.reports=[...this.reports,previous].slice(-8);}if(record)this.commands.push({...action,t:this.now});this.endpoint=null;
@@ -124,11 +128,12 @@ export class DiagnosticEngine {
   const a=action;
   if(a.maneuver==='induce'){if(this.cured||this.ring&&this.lesions.slice(0,6).some(x=>x>=1)){this.endpoint='Induction challenge: target tissue blocks the authored circuit.';this.note(this.endpoint,'endpoint');return;}this.tachy=true;this.queue=this.queue.filter(q=>q.kind!=='focus'&&!(q.kind==='node'&&q.origin==='circuit'));this.add({t:this.now+100,kind:this.m==='sensitive'||this.m==='rvot'?'focus':'node',node:this.ring?'F0':this.m==='atypical'?'N':'A',origin:'circuit'});this.endpoint='Authored circuit seeded. Observe the rhythm; use programmed stimulation to investigate recovery.';this.note('Induction challenge · '+this.endpoint);return;}
   if(a.maneuver==='parahis'&&this.tachy)throw new Error('Para-Hisian pacing requires sinus rhythm here. Cardiovert first, then compare His+RV and RV-only capture.');
-  this.generation++;
+  this.generation++;this.pendingPVC=null;
   if(a.maneuver==='pvc'){this.pendingPVC=a;this.add({t:this.now+3000,kind:'timeout',label:'PVC',generation:++this.pvcToken});this.note(`PVC armed · H + ${a.coupling} ms`);return;}
   const target=a.maneuver==='aop'||a.maneuver==='incremental'?'A':a.maneuver==='entrain'||a.maneuver==='pacemap'?'F'+this.selected:'V';
+  const pacingSite:PacingSite=target==='A'?'HRA':target.startsWith('F')?'mapping':a.maneuver==='parahis'?'para-His':a.site==='base'?'RV-base':'RVA';
   let t=this.now+100;
-  for(let i=0;i<a.beats;i++){this.add({t,kind:'stim',node:target,output:a.output,generation:this.generation,label:`${a.maneuver} · ${i+1}/${a.beats}`,capture:a.maneuver==='parahis'?a.capture:undefined,site:this.selected,origin:a.site,location:a.site});t+=a.maneuver==='incremental'?Math.max(220,a.cycle-i*20):a.cycle;}
+  for(let i=0;i<a.beats;i++){this.add({t,kind:'stim',node:target,output:a.output,pulseWidth:1,pacingSite,generation:this.generation,label:`${a.maneuver} · ${i+1}/${a.beats}`,capture:a.maneuver==='parahis'?a.capture:undefined,site:this.selected,origin:a.site,location:a.site});t+=a.maneuver==='incremental'?Math.max(220,a.cycle-i*20):a.cycle;}
   this.note(`${a.maneuver} · ${a.cycle} ms · ${a.beats} pulses · ${a.site}${a.maneuver==='parahis'?' · '+a.capture:''}`);
  }
  private collect(){

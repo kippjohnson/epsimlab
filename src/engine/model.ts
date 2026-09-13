@@ -3,8 +3,10 @@ import {validTherapy,type TherapyAction} from './therapy.ts';
 /** Shared domain contracts. Spatial identities remain stable as procedure modules grow. */
 export type NodeId = 'A' | 'U' | 'L' | 'H' | 'V';
 export type Site = 'HRA' | 'RVA';
+export type PacingSite = Site | 'RV-base' | 'para-His' | 'mapping';
+export type CaptureMode = 'rv' | 'his-rv' | 'atrial';
 export type EventKind = 'activation' | 'stimulus' | 'block' | 'note' | 'shock' | 'local';
-export interface LabEvent { id:number; t:number; kind:EventKind; node?:NodeId; from?:NodeId; cause?:number; label:string; captured?:boolean; atrialPattern?:'distal'|'focal'|'flutter'|'fibrillation'; atrialDelays?:number[]; site?:number; morphology?:'rvot'|'fascicular'|'scar'|'preexcited'|'paced'; evidence?:string; voltage?:number; origin?:string; beat?:number;paceSite?:number }
+export interface LabEvent { id:number; t:number; kind:EventKind; node?:NodeId; from?:NodeId; cause?:number; label:string; captured?:boolean; pulseWidth?:number; output?:number; pacingSite?:PacingSite; captureMode?:CaptureMode; atrialPattern?:'distal'|'focal'|'flutter'|'fibrillation'; atrialDelays?:number[]; site?:number; morphology?:'rvot'|'fascicular'|'scar'|'preexcited'|'paced'|'escape'; evidence?:string; voltage?:number; origin?:string; beat?:number;paceSite?:number }
 export interface Protocol { site:Site; s1:number; beats:number; s2:number|null; output:number; width:number;s3?:number|null }
 export type Command = {t:number; type:'pace'; protocol:Protocol}|{t:number;type:'stop'}|({t:number}&TherapyAction)|({t:number}&DiagnosticAction);
 export interface TissueRegion { id:string; label:string; position:[number,number,number]; excitability:number; conductionScale:number; lesionIds:string[] }

@@ -8,6 +8,10 @@ Landing page: [epsimlab.com](https://epsimlab.com). Source: [kippjohnson/epsimla
 
 Open [EPSimLab](https://app.epsimlab.com) in Safari or another modern browser. Deployed September 8, 2026, including five diagnostic cases, a guided introduction, 3D anatomy, and the mobile study workspace. Release 0.7 adds ten advanced cases, diagnostic pacing, discrete-site activation and voltage mapping, pace-map comparison, and lesion reassessment. The treatment lab includes drugs, synchronized cardioversion, and teaching ablation. Module 0 provides five foundational lessons, interactive timing diagrams, thirteen knowledge checks, and private account learning progress. Guests can explore every case; saving or exporting progress requires an account.
 
+## Recording revisions · September 12, 2026
+
+The current source distinguishes native conduction from RV myocardial capture, adds a square STIM timing row and lead-specific pacing artifacts, and corrects native QRS duration, repolarization timing and local trace annotations. The Guide and footer link to **How the model works** (`/#model`). See [signal changes and verification](docs/pacing-realism.md) and [model information page](docs/model-overview.md). This section describes the revised source; the deployment date above is unchanged.
+
 ## Open immediately
 
 Open `release/ep-lab.html` in a modern desktop browser. It is a self-contained build with no external fonts, libraries, or network dependencies. This portable build supports exploration; sign in on the hosted application to save or export progress. For a hosted preview, serve `dist/` over HTTP or deploy to Cloudflare.
@@ -16,7 +20,7 @@ The application has been built and inspected locally in a browser. The 3D viewer
 
 ## Develop
 
-Use Node.js 24 or later (the test runner uses Node's TypeScript transformation).
+Use Node.js 24 or later. Tests use the project's TypeScript compiler through a Node loader, including on Node 26 where the old transformation flag was removed.
 
 ```sh
 npm ci
@@ -36,7 +40,7 @@ Guests keep answers only in memory for the current session. Signed-in learners c
 
 ## Guided learning and case library
 
-Select **Take a guided tour** for seven steps through the actual workspace: the purpose of an EP study, catheters, signal rows, intervals, pacing, frozen evidence, and diagnosis. Actions open the corresponding controls without resetting the case. **Guide** also offers a searchable glossary and educational sources.
+Select **Guided tour** for seven steps through the actual workspace: the purpose of an EP study, catheters, signal rows, intervals, pacing, frozen evidence, and diagnosis. Actions open the corresponding controls without resetting the case. **Guide** also offers a searchable glossary and educational sources.
 
 **Guided** mode shows a case coach with observations to make and an appropriate action. **Challenge** hides the coach and diagnosis labels in the case chooser. Five foundational scenarios cover AVNRT, orthodromic AVRT, focal AT, typical flutter, and AF; this is a foundational teaching selection rather than a prevalence ranking. Cases 2–5 begin during the clinical rhythm. Flutter and AF open at slower sweep speeds to show more cycles.
 
@@ -50,7 +54,7 @@ See [diagnostic curriculum and model boundaries](docs/diagnostic-curriculum.md) 
 
 ## First study
 
-1. Observe sinus rhythm on nine channels.
+1. Observe sinus rhythm on the selected ECG and catheter channels.
 2. Deliver the default HRA train: S1 500 ms × 8, S2 280 ms, 5 mA, 1 ms.
 3. Observe the induced tachycardia. The AVNRT case produces a model cycle length of 315 ms.
 4. Freeze a segment. Use calipers to measure AH, HV, VA, or TCL, and label the measurements.

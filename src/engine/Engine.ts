@@ -36,7 +36,7 @@ class LegacyEngine {
   if(e.type==='drug-end'){if(this.drugs[e.drug!]===e.t)this.record({t:e.t,kind:'note',label:DRUGS[e.drug!].name+' · modeled effect ended'});return;}
   if(e.type==='shock-expire'){if(e.generation===this.shockGeneration&&this.shockPending){this.shockPending=false;this.record({t:e.t,kind:'note',label:'Synchronized shock cancelled · no ventricular trigger within 3 s'});}return;}
   if(e.type==='convert'){this.convert(e.label);return;}
-  if(e.type==='escape'){this.schedule({t:e.t+1500,type:'escape',label:'Ventricular escape'});if(e.t-this.last.V>=1450)this.activate('V',e.t,undefined,undefined,'Ventricular escape · AV conduction injury');return;}
+  if(e.type==='escape'){this.schedule({t:e.t+1500,type:'escape',label:'Ventricular escape'});if(e.t-this.last.V>=1450)this.activate('V',e.t,undefined,undefined,'Ventricular escape · AV conduction injury',undefined,'escape');return;}
   if(e.type==='rf'){
    if(!this.rf||e.generation!==this.rfGeneration)return;
    const r=this.rf,previous=this.lesions[r.target]??0;this.lesions[r.target]=Math.min(1,previous+r.power*r.contact/300);
@@ -56,22 +56,23 @@ class LegacyEngine {
    if(e.generation!==this.generation)return;
    const p=e.protocol!;const node=p.site==='HRA'?'A':'V';const threshold=(p.site==='HRA'?0.6:0.8)*(1+0.5/p.width);
    const captured=p.output>=threshold&&e.t-this.last[node]>=this.erp(node);
-   const cause=this.record({t:e.t,kind:'stimulus',node,label:e.label,captured});
+   const cause=this.record({t:e.t,kind:'stimulus',node,label:e.label,captured,pulseWidth:p.width,output:p.output,pacingSite:p.site});
    if(captured&&e.label==='S2'&&this.definition.mechanism==='avrt'&&!this.lesioned('left-ap'))this.avrtRunning=true;
-   if(captured)this.activate(node,e.t,undefined,cause,`${p.site} paced capture`);
+   if(captured)this.activate(node,e.t,undefined,cause,`${p.site} paced capture`,p.site);
    else this.record({t:e.t,kind:'note',label:p.output<threshold?'No capture · output below threshold':'No capture · tissue refractory',cause});
    return;
   }
   this.activate(e.node!,e.t,e.from,e.cause,e.label);
  }
- private activate(node:NodeId,t:number,from:NodeId|undefined,cause:number|undefined,label:string){
+ private activate(node:NodeId,t:number,from:NodeId|undefined,cause:number|undefined,label:string,pacingSite?:Protocol['site'],ventricularMorphology?:LabEvent['morphology']){
   if(node==='U'&&this.active('adenosine')||node==='H'&&this.lesioned('his-risk')||label.includes('slow-pathway')&&this.lesioned('slow-pathway')||label.includes('accessory-pathway')&&this.lesioned('left-ap')){this.record({t,kind:'block',node,from,cause,label:'Conduction blocked · '+(this.active('adenosine')?'adenosine':'ablated tissue')});return;}
   if(t-this.last[node]<this.erp(node)){this.record({t,kind:'block',node,from,cause,label:`${node} refractory · wavefront blocked`});return;}
   this.last[node]=t;
   const m=this.definition.mechanism;
   const atrialPattern=node==='A'&&!label.includes('paced')&&!label.includes('Sinus')?(m==='avrt'&&from==='V'?'distal':m==='at'?'focal':m==='flutter'?'flutter':m==='af'?'fibrillation':undefined):undefined;
   const atrialDelays=atrialPattern==='fibrillation'?Array.from({length:6},()=>Math.floor(this.random()*65)):undefined;
-  const id=this.record({t,kind:'activation',node,from,cause,label,...(atrialPattern?{atrialPattern}:{}),...(atrialDelays?{atrialDelays}:{})});
+  const morphology=node==='V'?(ventricularMorphology??(pacingSite==='RVA'?'paced':undefined)):undefined;
+  const id=this.record({t,kind:'activation',node,from,cause,label,...(pacingSite?{pacingSite}:{}),...(morphology?{morphology}:{}),...(atrialPattern?{atrialPattern}:{}),...(atrialDelays?{atrialDelays}:{})});
   if(node==='V'&&this.shockPending){this.shockPending=false;this.schedule({t:t+16,type:'convert',label:'Synchronized cardioversion'});}
   if(m!=='avnrt'){
    if(node==='A'&&!(from==='V'&&!this.avrtRunning))this.propagate('U','A',t+20,id,'Atrial input to AV node');

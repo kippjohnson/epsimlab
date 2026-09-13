@@ -54,3 +54,62 @@ test('diagnostic commands reject malformed and incompatible histories',()=>{
 test('every new case renders finite continuous signals including mapping electrograms',()=>{
  for(const c of advanced){const render=(chunk:number)=>{const e=new Engine(c.id),s=new Synthesizer(),out=CHANNELS.map(()=>[] as number[]);for(let t=0;t<1600;t+=chunk){const n=e.events.length;e.advance(t+chunk);s.render(t,t+chunk,e.events.slice(n)).forEach((a,i)=>out[i].push(...a));}return out;};const a=render(50),b=render(100);assert.deepEqual(a,b,c.id);assert.ok(a.flat().every(Number.isFinite));assert.ok(a[CHANNELS.findIndex(c=>c.id==='MAP')].some(x=>x!==0)||c.mechanism==='conduction');}
 });
+
+test('advanced programmed pacing preserves raw pulse settings and only captured RV beats get paced morphology',()=>{
+ for(const c of advanced){
+  const e=new Engine(c.id);e.advance(6000);e.pace({site:'RVA',s1:400,beats:8,s2:250,s3:230,output:5,width:.6});e.advance(11500);
+  const pulses=e.events.filter(x=>x.kind==='stimulus');assert.equal(pulses.length,10,c.id);assert.ok(pulses.some(x=>x.captured),c.id);
+  for(const p of pulses){
+   assert.equal(p.output,5);assert.equal(p.pulseWidth,.6);assert.equal(p.pacingSite,'RVA');
+   const v=e.events.find(x=>x.kind==='activation'&&x.node==='V'&&x.cause===p.id);
+   assert.equal(Boolean(v),p.captured,c.id);if(v)assert.equal(v.morphology,'paced',c.id);
+  }
+  const failed=new Engine(c.id);failed.advance(6000);failed.pace({site:'RVA',s1:400,beats:4,s2:null,output:0,width:.6});failed.advance(8000);
+  for(const p of failed.events.filter(x=>x.kind==='stimulus')){assert.equal(p.captured,false);assert.equal(p.output,0);assert.ok(!failed.events.some(x=>x.kind==='activation'&&x.cause===p.id));}
+ }
+});
+
+test('advanced pulse width affects capture without changing the recorded delivered output',()=>{
+ for(const [width,captured] of [[.1,false],[2,true]] as const){
+  const e=new Engine('his-purkinje');e.advance(6050);e.pace({site:'HRA',s1:500,beats:1,s2:null,output:1,width});e.advance(6500);
+  const pulse=e.events.find(x=>x.kind==='stimulus')!;assert.equal(pulse.output,1);assert.equal(pulse.pulseWidth,width);assert.equal(pulse.captured,captured);
+ }
+});
+
+test('para-Hisian QRS metadata reflects actual His recovery and includes pulse settings',()=>{
+ for(const capture of ['his-rv','rv','atrial'] as const){
+  const e=new Engine('avrt-septal');e.advance(6000);e.intervene({type:'cardiovert'});e.advance(10000);e.diagnostic({...DEFAULT_MANEUVER,maneuver:'parahis',cycle:400,beats:12,capture});e.advance(19000);
+  const pulses=e.events.filter(x=>x.kind==='stimulus');assert.ok(pulses.some(x=>x.captureMode===capture));
+  for(const p of pulses){
+   assert.equal(p.pacingSite,'para-His');assert.equal(p.output,DEFAULT_MANEUVER.output);assert.equal(p.pulseWidth,1);
+   if(!p.captured)continue;
+   const v=e.events.find(x=>x.kind==='activation'&&x.node==='V'&&x.cause===p.id)!;assert.equal(v.morphology,'paced');assert.equal(v.captureMode,p.captureMode);
+   const h=e.events.find(x=>x.kind==='activation'&&x.node==='H'&&x.cause===p.id&&x.t===p.t);
+   assert.equal(Boolean(h),p.captureMode==='his-rv');
+  }
+ }
+ const refractory=new Engine('avrt-septal');refractory.advance(6000);refractory.intervene({type:'cardiovert'});refractory.advance(10000);
+ refractory.pace({site:'RVA',s1:400,beats:1,s2:null,output:5,width:1});refractory.advance(10200);
+ refractory.diagnostic({...DEFAULT_MANEUVER,maneuver:'parahis',cycle:400,beats:4,capture:'his-rv'});refractory.advance(12500);
+ const pulses=refractory.events.filter(x=>x.kind==='stimulus'&&x.pacingSite==='para-His');
+ assert.equal(pulses[0].captured,true);assert.equal(pulses[0].captureMode,'rv');assert.equal(pulses[1].captureMode,'his-rv');
+ assert.ok(!refractory.events.some(x=>x.kind==='activation'&&x.node==='H'&&x.cause===pulses[0].id&&x.t===pulses[0].t));
+});
+
+test('atrial pacing after VT conversion uses conducted QRS while ventricular mapping retains the VT family',()=>{
+ for(const caseId of ['rvot-vt','fascicular-vt','scar-vt']){
+  const e=new Engine(caseId);e.advance(6000);e.intervene({type:'cardiovert'});e.advance(10000);e.pace({site:'HRA',s1:500,beats:6,s2:null,output:5,width:1});e.advance(14000);
+  const v=e.events.filter(x=>x.kind==='activation'&&x.node==='V'&&x.t>10000);assert.ok(v.length>3,caseId);assert.ok(v.every(x=>x.morphology===undefined),caseId);
+ }
+ const map=new Engine('scar-vt');map.advance(6000);map.diagnostic({type:'map',site:1});map.diagnostic({...DEFAULT_MANEUVER,maneuver:'entrain',cycle:390,beats:20});map.advance(16000);
+ assert.ok(map.events.filter(x=>x.kind==='stimulus').every(x=>x.pacingSite==='mapping'&&x.pulseWidth===1&&x.output===DEFAULT_MANEUVER.output));
+ assert.ok(map.events.some(x=>x.kind==='activation'&&x.node==='V'&&x.origin==='paced'&&x.morphology==='scar'&&x.paceSite!==undefined));
+});
+
+test('starting a new pacing protocol or maneuver disarms an undelivered His-timed PVC',()=>{
+ for(const programmed of [true,false]){
+  const e=new Engine('avrt-septal');e.advance(6000);e.diagnostic({...DEFAULT_MANEUVER,maneuver:'pvc'});
+  if(programmed)e.pace({site:'RVA',s1:400,beats:5,s2:null,output:5,width:1});else e.diagnostic({...DEFAULT_MANEUVER,maneuver:'aop',cycle:400,beats:5});
+  e.advance(12000);assert.ok(!e.events.some(x=>x.kind==='stimulus'&&x.label==='His-timed PVC'));
+ }
+});

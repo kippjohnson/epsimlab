@@ -1,4 +1,6 @@
 import type {LabEvent} from './model';
+import {nativeVentricular,pacedVentricular,type SignalEvent} from './surfaceWaveforms.ts';
+import {pacingArtifact} from './pacingSignals.ts';
 export const FS=2000;
 export const CHANNELS=[
  // Preserve the original indices for recordings and existing signal consumers.
@@ -55,9 +57,10 @@ function legacyContribution(channel:number,e:LabEvent,t:number){
 }
 const CHEST_TEMPLATES:Record<string,number[]>={V2:[.08,.4,-.85,.16],V3:[.1,.7,-.62,.24],V4:[.12,1.05,-.35,.32],V5:[.1,1.1,-.16,.3],V6:[.08,.85,-.06,.24]};
 /** Authored lead templates, not a patient-specific 12-lead forward model. */
-function surfaceContribution(id:string,e:LabEvent,t:number):number{
+function surfaceContribution(id:string,e:SignalEvent,t:number):number{
  const d=t-e.t;if(d<0||d>420)return 0;
  if(e.kind==='activation'&&e.node==='V'&&e.morphology)return ventricularTemplate(id,e,d);
+ if(e.kind==='activation'&&e.node==='V')return nativeVentricular(id,e,d);
  const ii=legacyContribution(0,e,t);
  if(id==='II')return ii;
  if(id==='V1')return legacyContribution(1,e,t);
@@ -75,7 +78,8 @@ function surfaceContribution(id:string,e:LabEvent,t:number):number{
  return 0;
 }
 /** Broad-complex teaching templates; no claim of diagnostic 12-lead localization accuracy. */
-function ventricularTemplate(id:string,e:LabEvent,d:number){
+function ventricularTemplate(id:string,e:SignalEvent,d:number){
+ if(e.morphology==='paced'||e.morphology==='escape')return pacedVentricular(id,e,d);
  const m=e.morphology,wide=m==='fascicular'?1:m==='preexcited'?1.15:1.4;
  const profile=m==='rvot'?[.65,1.1,-1]:m==='fascicular'?[.8,-.65,1]:m==='scar'?[-.5,-.85,-1]:m==='preexcited'?[.6,.9,-.5]:[-.35,.65,-.9];
  const shape=(amp:number)=>amp*(.9*g(d,45*wide,12*wide)-.18*g(d,80*wide,10*wide))-.2*amp*g(d,280,45);
@@ -86,14 +90,15 @@ function ventricularTemplate(id:string,e:LabEvent,d:number){
  return shape(amp)+(m==='preexcited'?.16*g(d,15,14):0);
 }
 const csPosition:Record<string,number>={CSp:0,CS89:.25,CS78:.5,CS67:.75,CSm:1,CS45:1.25,CS34:1.5,CS23:1.75,CSd:2};
-export function contribution(channel:number,e:LabEvent,t:number):number{
+export function contribution(channel:number,e:SignalEvent,t:number):number{
  const c=CHANNELS[channel];if(!c)return 0;
- if(c.id==='MAP')return e.kind==='local'?(t<e.t||t-e.t>420?0:bipole(t-e.t,e.voltage??1,1.8)):e.kind==='stimulus'?legacyContribution(8,e,t):0;
+ if(e.kind==='stimulus')return pacingArtifact(c.id,c.kind==='surface',e,t);
+ if(c.id==='MAP')return e.kind==='local'?(t<e.t||t-e.t>420?0:bipole(t-e.t,e.voltage??1,1.8)):0;
  if(e.kind==='local')return 0;
  if(c.kind==='surface')return surfaceContribution(c.id,e,t);
  if(channel<9)return legacyContribution(channel,e,t);
  const d=t-e.t;if(d<0||d>420)return 0;
- if(e.kind==='stimulus'||e.kind==='shock')return legacyContribution(8,e,t);
+ if(e.kind==='shock')return legacyContribution(8,e,t);
  if(e.kind!=='activation')return 0;
  if(c.id==='HIS23')return (legacyContribution(3,e,t)+legacyContribution(4,e,t))/2;
  if(c.id.startsWith('HRA')){
@@ -112,6 +117,18 @@ export function contribution(channel:number,e:LabEvent,t:number):number{
   if(e.node==='V')return bipole(d-position*7,.3,5);
  }
  return 0;
+}
+/** Peak of an isolated local electrogram template, for optional trace labels.
+ * Network event times remain unchanged; local catheter delays belong to signals.
+ */
+export function localActivationPeak(channel:number,e:LabEvent){
+ let peak=0,at=e.t;
+ const window=e.node==='A'?180:60;
+ for(let d=0;d<=window;d+=.5){
+  const value=Math.abs(contribution(channel,e,e.t+d));
+  if(value>peak){peak=value;at=e.t+d;}
+ }
+ return at;
 }
 function background(channel:number,t:number):number{
  const noise=(ch:number)=>.003*Math.sin(t*.071+ch*3)+.002*Math.sin(t*.137+ch);
@@ -132,8 +149,27 @@ class Biquad {
  process(x:number){const y=this.b0*x+this.z1;this.z1=this.b1*x-this.a1*y+this.z2;this.z2=this.b2*x-this.a2*y;return y;}
 }
 export class Synthesizer {
- private filters:{hp:Biquad;lp:Biquad}[]=[]; private history:LabEvent[]=[];
+ private filters:{hp:Biquad;lp:Biquad}[]=[]; private history:SignalEvent[]=[];private lastV:number|null=null;
  constructor(public band:'standard'|'narrow'='standard'){this.setBand(band);}
  setBand(band:'standard'|'narrow'){this.band=band;this.filters=CHANNELS.map(c=>({hp:new Biquad('high',c.kind==='surface'?.5:band==='standard'?30:100),lp:new Biquad('low',c.kind==='surface'?150:band==='standard'?500:300)}));}
- render(start:number,end:number,events:LabEvent[]){this.history.push(...events.filter(e=>e.kind==='activation'||e.kind==='stimulus'||e.kind==='shock'||e.kind==='local'));this.history=this.history.filter(e=>e.t>=start-450);const n=Math.round((end-start)*FS/1000),data=CHANNELS.map(()=>new Float32Array(n));for(let i=0;i<n;i++){const t=start+i*1000/FS;for(let ch=0;ch<CHANNELS.length;ch++){let v=background(ch,t);for(const e of this.history)v+=contribution(ch,e,t);data[ch][i]=this.filters[ch].lp.process(this.filters[ch].hp.process(v));}}return data;}
+ render(start:number,end:number,events:LabEvent[]){
+  for(const event of events){
+   if(!['activation','stimulus','shock','local'].includes(event.kind))continue;
+   let e:SignalEvent=event;
+   if(event.kind==='activation'&&event.node==='V'){
+    e={...event,cycleLength:this.lastV===null?800:event.t-this.lastV};this.lastV=event.t;
+   }
+   this.history.push(e);
+  }
+  this.history=this.history.filter(e=>e.t>=start-450);
+  const n=Math.round((end-start)*FS/1000),data=CHANNELS.map(()=>new Float32Array(n));
+  for(let i=0;i<n;i++){
+   const t=start+i*1000/FS;
+   for(let ch=0;ch<CHANNELS.length;ch++){
+    let v=background(ch,t);for(const e of this.history)v+=contribution(ch,e,t);
+    data[ch][i]=this.filters[ch].lp.process(this.filters[ch].hp.process(v));
+   }
+  }
+  return data;
+ }
 }

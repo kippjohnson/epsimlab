@@ -5,16 +5,18 @@ const mean=(a:number[])=>a.reduce((x,y)=>x+y,0)/Math.max(1,a.length);
 const diffs=(a:LabEvent[])=>a.slice(1).map((e,i)=>e.t-a[i].t);
 export function analyzeManeuver(events:LabEvent[],commands:Command[],now:number,busy=false):ManeuverReport|null{
  const command=commands.filter(c=>c.type==='maneuver').at(-1);if(!command||command.type!=='maneuver')return null;
- const start=command.t,range=events.filter(e=>e.t>=start),stim=range.filter(e=>e.kind==='stimulus'&&(e.label.startsWith(command.maneuver)||command.maneuver==='pvc'&&e.label==='His-timed PVC'));
+ const start=command.t,nextCommand=commands.slice(commands.lastIndexOf(command)+1).find(c=>!['map','collect-map'].includes(c.type));
+ const range=events.filter(e=>e.t>=start&&e.t<=now&&(!nextCommand||e.t<nextCommand.t)),stim=range.filter(e=>e.kind==='stimulus'&&(e.label.startsWith(command.maneuver)||command.maneuver==='pvc'&&e.label==='His-timed PVC'));
  const prior=events.filter(e=>e.kind==='activation'&&e.node==='V'&&e.t<start).slice(-5),cycles=diffs(prior),tcl=cycles.length>=3&&Math.max(...cycles)-Math.min(...cycles)<10?mean(cycles):null;
  const byId=new Map(events.map(e=>[e.id,e]));
  const descends=(event:LabEvent,id:number)=>{let x:LabEvent|undefined=event;for(let i=0;x&&i<30;i++){if(x.id===id)return true;x=byId.get(x.cause??-1);}return false;};
  const values=[{label:'Captured pulses',value:`${stim.filter(e=>e.captured).length} / ${stim.length}`}];
  const result:ManeuverReport={title:command.maneuver==='pvc'?'His-timed ventricular extrastimulus':command.maneuver.toUpperCase(),start,end:stim.at(-1)?.t??null,status:busy?'Delivering':'Awaiting response',values,interpretation:'Inspect capture and the activation sequence before drawing a conclusion.'};
  if(command.maneuver==='induce'){result.status='Induction challenge';result.interpretation='This control seeds the authored circuit. Programmed stimulation separately tests recovery and capture.';return result;}
+ if(!busy&&!stim.length&&now>=start+3000){result.status='No stimulus delivered';result.interpretation='No timed pulse was delivered. Check for an antegrade His trigger or a cancelled protocol; this is not a negative diagnostic response.';return result;}
  if(busy||!stim.length)return result;
  const last=stim.at(-1)!;if(now<last.t+1500)return result;
- const subsequent=commands.filter(c=>c.t>start&&!['map','collect-map'].includes(c.type));if(subsequent.length){result.status='Confounded';result.interpretation='Another intervention occurred during the observation window. Repeat the maneuver in isolation.';return result;}
+ if(nextCommand&&nextCommand.t<=last.t+1500){result.status='Confounded';result.interpretation='Another intervention occurred during the observation window. Repeat the maneuver in isolation.';return result;}
  if(stim.slice(-3).some(e=>!e.captured)||stim.length<3&&command.maneuver!=='pvc'){result.status='Incomplete capture';result.interpretation='The final three pulses did not establish a complete captured train. Do not interpret this as a negative diagnostic response.';return result;}
  if(command.maneuver==='pvc'){
   const h=events.filter(e=>e.kind==='activation'&&e.node==='H'&&e.t<=last.t).at(-1);const a=events.filter(e=>e.kind==='activation'&&e.node==='A'&&e.t<last.t).slice(-5),aa=diffs(a),next=events.find(e=>e.kind==='activation'&&e.node==='A'&&e.t>last.t);
@@ -26,10 +28,13 @@ export function analyzeManeuver(events:LabEvent[],commands:Command[],now:number,
   return result;
  }
  if(command.maneuver==='parahis'){
-  const sa=stim.flatMap(s=>{const a=events.find(e=>e.kind==='activation'&&e.node==='A'&&e.t>=s.t&&e.t<s.t+command.cycle);return a?[a.t-s.t]:[];});
+  const final=stim.slice(-3);
+  const sa=final.flatMap(s=>{const a=events.find(e=>e.kind==='activation'&&e.node==='A'&&e.t>=s.t&&e.t<s.t+command.cycle&&descends(e,s.id));return a?[a.t-s.t]:[];});
   const hisCapture=stim.filter(s=>events.some(e=>e.kind==='activation'&&e.node==='H'&&e.cause===s.id&&e.t===s.t)).length;values.push({label:'Confirmed direct His captures',value:hisCapture+' / '+stim.length});
   values.push({label:'Capture setting',value:command.capture},{label:'Mean stimulus → A',value:sa.length?Math.round(mean(sa))+' ms':'No atrial return'});
-  result.status=command.capture==='atrial'?'Direct atrial capture — invalid comparison':'Compare with other capture setting';result.interpretation='Compare stimulus-to-A time and atrial sequence at the same cycle length after changing His capture. A decremental or distant pathway can be masked by nodal conduction.';return result;
+  const directA=final.some(s=>events.some(e=>e.kind==='activation'&&e.node==='A'&&e.cause===s.id&&e.t===s.t));
+  const finalHis=final.filter(s=>events.some(e=>e.kind==='activation'&&e.node==='H'&&e.cause===s.id&&e.t===s.t)).length;
+  result.status=directA?'Direct atrial capture — invalid comparison':sa.length!==3?'Retrograde conduction not established':finalHis>0&&finalHis<3?'Unstable His capture — invalid comparison':'Compare with other capture setting';result.interpretation='Compare stimulus-to-A time and atrial sequence at the same cycle length after changing His capture. A decremental or distant pathway can be masked by nodal conduction.';return result;
  }
  if(tcl!==null)values.push({label:'Baseline V–V cycle',value:Math.round(tcl)+' ms'});
  if(command.maneuver==='vop'){
@@ -37,11 +42,19 @@ export function analyzeManeuver(events:LabEvent[],commands:Command[],now:number,
   const sas=atrial.map((a,i)=>a.length===1?a[0].t-lastThree[i].t:NaN);
   const entrained=lastThree.length===3&&sas.every(Number.isFinite)&&Math.max(...sas)-Math.min(...sas)<5&&tcl!==null&&command.cycle<tcl-10;
   result.status=entrained?'Atrial acceleration with stable S–A':'Atrial entrainment not established';
-  if(!entrained){result.interpretation='The atrium did not demonstrably follow the last three captured stimuli at a faster, stable cycle. Do not assign a diagnostic postpacing sequence or PPI cutoff.';return result;}
+  if(!entrained){
+   const before=events.filter(e=>e.kind==='activation'&&e.node==='A'&&e.t<start).slice(-5),aa=diffs(before);
+   const during=events.filter(e=>e.kind==='activation'&&e.node==='A'&&e.t>=lastThree[0].t&&e.t<=last.t+command.cycle);
+   if(aa.length>=3&&Math.max(...aa)-Math.min(...aa)<5&&during.length>=3&&diffs(during).every(x=>Math.abs(x-mean(aa))<5)&&Math.abs(mean(aa)-command.cycle)>10){
+    values.push({label:'A–A during ventricular pacing',value:Math.round(mean(diffs(during)))+' ms'});
+   }
+   result.interpretation='The atrium did not demonstrably follow the last three captured stimuli at a faster, stable cycle. Do not assign a diagnostic postpacing sequence or PPI cutoff.';return result;}
   const nextV=events.find(e=>e.kind==='activation'&&e.node==='V'&&e.t>last.t+5&&!stim.some(s=>s.id===e.cause));
-  const linkedA=atrial.at(-1)![0];const post=events.filter(e=>e.kind==='activation'&&['A','V'].includes(e.node??'')&&e.t>=linkedA.t).slice(0,2);
-  values.push({label:'Last paced V then activations',value:'V–'+post.map(e=>e.node).join('–')});
-  if(nextV&&tcl!==null){const ppi=nextV.t-last.t;values.push({label:'PPI − TCL (RV event reference)',value:Math.round(ppi-tcl)+' ms'});const h=events.filter(e=>e.kind==='activation'&&e.node==='H'&&e.t<start).at(-1),a=events.filter(e=>e.kind==='activation'&&e.node==='A'&&h&&e.t<h.t).at(-1),returnH=events.find(e=>e.kind==='activation'&&e.node==='H'&&e.t>linkedA.t&&e.t<nextV.t);if(h&&a&&returnH){const change=returnH.t-linkedA.t-(h.t-a.t);values.push({label:'Return AH − baseline AH',value:Math.round(change)+' ms'},{label:'AH-corrected PPI − TCL',value:Math.round(ppi-tcl-Math.max(0,change))+' ms'});}}
+  const linkedA=atrial.at(-1)![0];const afterA=events.filter(e=>e.kind==='activation'&&['A','V'].includes(e.node??'')&&e.t>=linkedA.t&&e.t<=last.t+1500);
+  const returnIndex=afterA.findIndex(e=>e.node==='V');
+  const post=returnIndex>=0?afterA.slice(0,returnIndex+1):afterA;
+  values.push({label:'Last paced V then activations',value:'V–'+post.map(e=>e.node).join('–')+(returnIndex<0?' (no ventricular return)':'')});
+  if(nextV&&nextV.t<=last.t+1500&&tcl!==null){const ppi=nextV.t-last.t;values.push({label:'PPI − TCL (RV event reference)',value:Math.round(ppi-tcl)+' ms'});const h=events.filter(e=>e.kind==='activation'&&e.node==='H'&&e.t<start).at(-1),a=events.filter(e=>e.kind==='activation'&&e.node==='A'&&h&&e.t<h.t).at(-1),returnH=events.find(e=>e.kind==='activation'&&e.node==='H'&&e.t>linkedA.t&&e.t<nextV.t);if(h&&a&&returnH){const change=returnH.t-linkedA.t-(h.t-a.t);values.push({label:'Return AH − baseline AH',value:Math.round(change)+' ms'},{label:'AH-corrected PPI − TCL',value:Math.round(ppi-tcl-Math.max(0,change))+' ms'});}}
   values.push({label:'Stimulus → A',value:Math.round(mean(sas))+' ms'});const baselineVA=prior.flatMap(v=>{const a=events.find(e=>e.kind==='activation'&&e.node==='A'&&e.t>=v.t&&e.t<start);return a?[a.t-v.t]:[];});if(baselineVA.length)values.push({label:'S–A minus baseline V–A',value:Math.round(mean(sas)-mean(baselineVA))+' ms'});
   result.interpretation='The atrium followed pacing. Inspect the last entrained A and return sequence. PPI is referenced to the modeled RV activation; AH correction is shown only when an A–H pair brackets the ventricular return. No automatic diagnostic cutoff is applied.';return result;
  }

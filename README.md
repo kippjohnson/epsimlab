@@ -8,6 +8,10 @@ Landing page: [epsimlab.com](https://epsimlab.com). Source: [kippjohnson/epsimla
 
 Open [EPSimLab](https://app.epsimlab.com) in Safari or another modern browser. Deployed September 8, 2026, including five diagnostic cases, a guided introduction, 3D anatomy, and the mobile study workspace. Release 0.7 adds ten advanced cases, diagnostic pacing, discrete-site activation and voltage mapping, pace-map comparison, and lesion reassessment. The treatment lab includes drugs, synchronized cardioversion, and teaching ablation. Module 0 provides five foundational lessons, interactive timing diagrams, thirteen knowledge checks, and private account learning progress. Guests can explore every case; saving or exporting progress requires an account.
 
+## Physiology revision · release 0.8
+
+Engine 0.5 revises bipolar electrograms, atrial/ventricular activation sequences, AV nodal recovery during rapid drive, foundational diagnostic maneuvers and causal postpacing analysis. Version 0.4 recordings retain frozen physiology and waveforms during replay. See [findings, parameter choices, primary references and review protocols](docs/physiology-audit.md).
+
 ## Recording revisions · September 12, 2026
 
 The current source distinguishes native conduction from RV myocardial capture, adds a square STIM timing row and lead-specific pacing artifacts, and corrects native QRS duration, repolarization timing and local trace annotations. The Guide and footer link to **How the model works** (`/#model`). See [signal changes and verification](docs/pacing-realism.md) and [model information page](docs/model-overview.md). This section describes the revised source; the deployment date above is unchanged.

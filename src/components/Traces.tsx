@@ -1,3 +1,5 @@
+import {localActivationPeak as previousActivationPeak} from '../engine/legacy/signals';
+import {ENGINE_VERSION} from '../engine/model';
 import {useEffect,useRef,useState,type CSSProperties} from 'react';
 import {CHANNELS,displayChannels,localActivationPeak} from '../engine/signals';
 import {stimulusOutput,stimulusWidth} from '../engine/pacingSignals';
@@ -89,7 +91,7 @@ export function Traces({recording,end,sweep,gain,gains,onGain,calipers,onMeasure
      for(const e of recording.events){
       if(e.kind!=='activation'||!['A','H','V'].includes(e.node??'')||e.t<start-180||e.t>finish)continue;
       let cached=landmarks.current.get(e);if(!cached){cached=new Map();landmarks.current.set(e,cached);}
-      let t=cached.get(ch);if(t===undefined){t=localActivationPeak(ch,e);cached.set(ch,t);}
+      let t=cached.get(ch);if(t===undefined){t=recording.engineVersion===ENGINE_VERSION?localActivationPeak(ch,e):previousActivationPeak(ch,e);cached.set(ch,t);}
       if(t<start||t>finish)continue;
       ctx.fillStyle=e.node==='A'?'#6bb6ff':e.node==='H'?'#f1c267':'#69d7aa';ctx.font='10px ui-monospace, monospace';
       ctx.fillText(e.node!,px(t)+2,row*hisRow+11);

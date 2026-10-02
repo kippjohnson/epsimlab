@@ -1,3 +1,4 @@
+import {intracardiac} from './intracardiac.ts';
 import type {LabEvent} from './model';
 import {nativeVentricular,pacedVentricular,type SignalEvent} from './surfaceWaveforms.ts';
 import {pacingArtifact} from './pacingSignals.ts';
@@ -45,7 +46,7 @@ function legacyContribution(channel:number,e:LabEvent,t:number){
  if(channel<2){if(e.node==='A'){
   if(e.atrialPattern==='flutter')return d<240?(channel===0?-.2:.14)*(d<190?d/190:(240-d)/50):0;
   if(e.atrialPattern==='fibrillation')return .045*Math.sin(d*.12+e.id)*(g(d,65,40)+.4*g(d,135,25));
-  return (e.atrialPattern==='focal'?-.8:1)*(channel===0?.12:-.09)*g(d,40,15);
+  return (e.atrialPattern==='focal'?-.8:e.atrialPattern==='concentric'||e.atrialPattern==='distal'?-.65:1)*(channel===0?.12:-.09)*g(d,40,15);
  }if(e.node==='V')return channel===0?-.14*g(d,7,2)+.95*g(d,16,3)-.27*g(d,25,4)+.23*g(d,230,40):.28*g(d,10,3)-.7*g(d,23,5)-.1*g(d,210,36);return 0;}
  const delays=e.atrialPattern==='distal'?[55,40,40,28,14,0]:e.atrialPattern==='focal'?[0,25,25,40,54,68]:e.atrialPattern==='flutter'?[0,55,55,95,115,135]:e.atrialDelays??[0,10,10,0,14,28];
  const atrial=(amp:number,width=2)=>{const dt=d-(delays[channel-2]??0);return e.atrialPattern==='fibrillation'?bipole(dt,amp*.35,1.4)+bipole(dt-17,amp*.22,2)+bipole(dt-39,-amp*.19,1.5):bipole(dt,amp,width);};
@@ -89,41 +90,19 @@ function ventricularTemplate(id:string,e:SignalEvent,d:number){
  const lead=Number(id.slice(1)),amp=profile[2]*(1-(lead-1)*.35)*variation;
  return shape(amp)+(m==='preexcited'?.16*g(d,15,14):0);
 }
-const csPosition:Record<string,number>={CSp:0,CS89:.25,CS78:.5,CS67:.75,CSm:1,CS45:1.25,CS34:1.5,CS23:1.75,CSd:2};
 export function contribution(channel:number,e:SignalEvent,t:number):number{
  const c=CHANNELS[channel];if(!c)return 0;
  if(e.kind==='stimulus')return pacingArtifact(c.id,c.kind==='surface',e,t);
- if(c.id==='MAP')return e.kind==='local'?(t<e.t||t-e.t>420?0:bipole(t-e.t,e.voltage??1,1.8)):0;
+ if(c.kind==='ic')return intracardiac(c.id,e,t);
  if(e.kind==='local')return 0;
- if(c.kind==='surface')return surfaceContribution(c.id,e,t);
- if(channel<9)return legacyContribution(channel,e,t);
- const d=t-e.t;if(d<0||d>420)return 0;
- if(e.kind==='shock')return legacyContribution(8,e,t);
- if(e.kind!=='activation')return 0;
- if(c.id==='HIS23')return (legacyContribution(3,e,t)+legacyContribution(4,e,t))/2;
- if(c.id.startsWith('HRA')){
-  const offset=c.id==='HRA23'?3:6;
-  return e.node==='A'?legacyContribution(2,e,t-offset)*(c.id==='HRA23'?.9:.8):legacyContribution(2,e,t);
- }
- if(c.id.startsWith('RV')){
-  const offset=c.id==='RV23'?2:4;
-  return e.node==='V'?legacyContribution(8,e,t-offset)*(c.id==='RV23'?.9:.8):legacyContribution(8,e,t);
- }
- const position=csPosition[c.id];
- if(position!==undefined){
-  const delays=e.atrialPattern==='distal'?[28,14,0]:e.atrialPattern==='focal'?[40,54,68]:e.atrialPattern==='flutter'?[95,115,135]:e.atrialDelays?.slice(3,6)??[0,14,28];
-  const lo=Math.floor(position),hi=Math.ceil(position),delay=delays[lo]+(delays[hi]-delays[lo])*(position-lo),dt=d-delay,amp=1-position*.12;
-  if(e.node==='A')return e.atrialPattern==='fibrillation'?bipole(dt,amp*.35,1.4)+bipole(dt-17,amp*.22,2)+bipole(dt-39,-amp*.19,1.5):bipole(dt,amp,2.5);
-  if(e.node==='V')return bipole(d-position*7,.3,5);
- }
- return 0;
+ return surfaceContribution(c.id,e,t);
 }
 /** Peak of an isolated local electrogram template, for optional trace labels.
  * Network event times remain unchanged; local catheter delays belong to signals.
  */
 export function localActivationPeak(channel:number,e:LabEvent){
  let peak=0,at=e.t;
- const window=e.node==='A'?180:60;
+ const window=e.node==='H'?60:180;
  for(let d=0;d<=window;d+=.5){
   const value=Math.abs(contribution(channel,e,e.t+d));
   if(value>peak){peak=value;at=e.t+d;}

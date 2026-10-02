@@ -1,3 +1,4 @@
+import {captureThreshold} from './capture.ts';
 import {analyzeManeuver} from './diagnosticAnalysis.ts';
 import {CASES,validCommand,type Command,type LabEvent,type Protocol,type NodeId,type PacingSite,type CaptureMode} from './model.ts';
 import {DEFAULT_MANEUVER,EMPTY_DIAGNOSTIC,mapNames,validDiagnostic,type DiagnosticAction,type DiagnosticState,type MapPoint} from './curriculum.ts';
@@ -38,11 +39,11 @@ export class DiagnosticEngine {
   if(q.kind==='timeout'){if(q.label==='idle'){if(this.tachy&&this.last[this.vt?'V':'A']===q.cause){this.tachy=false;this.note('Sustained activation ceased · reassess the substrate.');}return;}if(q.label==='PVC'&&q.generation===this.pvcToken&&this.pendingPVC){this.pendingPVC=null;this.note('PVC cancelled: no antegrade His event within 3 s.');}else if(q.label==='shock'&&this.shock){this.shock=false;this.note('Cardioversion cancelled: no ventricular trigger.');}return;}
   if(q.kind==='stim'){
    if(q.generation!==this.generation)return;
-   const node=q.node!,pulseWidth=q.pulseWidth??1,output=q.output??5,threshold=(node==='A'?.9:1.2)*(.5+.5/pulseWidth),captured=output>=threshold&&q.t-(this.last[node]??-1e9)>=this.erp(node);
+   const node=q.node!,pulseWidth=q.pulseWidth??1,output=q.output??5,threshold=captureThreshold(node==='A',pulseWidth),excitable=!node.startsWith('F')||this.lesions[Number(node.slice(1))]<1,captured=excitable&&output>=threshold&&q.t-(this.last[node]??-1e9)>=this.erp(node);
    // The requested capture setting is only achieved if the additional tissue has recovered.
    const captureMode=!captured||!q.capture?undefined:q.capture==='his-rv'&&q.t-(this.last.H??-1e9)>=this.erp('H')?'his-rv':q.capture==='atrial'&&q.t-(this.last.A??-1e9)>=this.erp('A')?'atrial':'rv';
    const cause=this.record({t:q.t,kind:'stimulus',node:node==='A'?'A':node==='V'?'V':undefined,label:q.label??'S1',captured,site:q.site,origin:q.origin,pulseWidth,output,pacingSite:q.pacingSite,...(captureMode?{captureMode}:{})});
-   if(!captured){this.note(output<threshold?'No capture · output below threshold':'No capture · tissue refractory');return;}
+   if(!captured){this.note(!excitable?'No capture · ablated tissue inexcitable':output<threshold?'No capture · output below threshold':'No capture · tissue refractory');return;}
    if(q.label==='His-timed PVC'){const refractory=q.t-(this.last.H??-1e9)<this.erp('H');this.note(`PVC captured · ${Math.round(q.t-(this.last.H??q.t))} ms after H · His ${refractory?'refractory':'recovered'}`,refractory?'hisPVC':undefined);}
    if(node==='A'&&['S2','S3'].includes(q.label??'')&&this.m==='wpw'&&!this.cured&&q.t+35-(this.last.AP??-1e9)<this.erp('AP')){this.tachy=true;this.note('Premature atrial capture encounters antegrade pathway refractoriness.');}
    this.node({...q,kind:'node',cause,origin:'paced',capture:captureMode});
@@ -63,7 +64,7 @@ export class DiagnosticEngine {
    const directVentricularCapture=node==='V'&&q.origin==='paced'&&!q.from;
    const morphology=node==='V'?(directVentricularCapture?'paced':q.from==='AP'?'preexcited':this.vt&&q.from?.startsWith('F')?this.m:undefined):undefined;
    const evidence=node==='V'&&q.from==='AP'?'preexcitation':undefined;
-   const atrialPattern=node==='A'&&q.origin!=='sinus'&&!(q.origin==='paced'&&!q.from)?(this.m==='sensitive'?'focal':this.m==='macro'?'flutter':undefined):undefined;
+   const atrialPattern=node==='A'&&q.origin!=='sinus'&&!(q.origin==='paced'&&!q.from)?(q.from==='N'||q.from==='AP'?'concentric':this.m==='sensitive'?'focal':this.m==='macro'?'flutter':undefined):undefined;
    q.cause=this.record({t:q.t,kind:'activation',node:node as NodeId,from:['A','H','V'].includes(q.from??'')?q.from as NodeId:undefined,cause:q.cause,label:`${node} ${q.origin??'conducted'} activation`,origin:q.origin,...(morphology?{morphology:morphology as LabEvent['morphology']}:{}) ,...(q.pacingSite?{pacingSite:q.pacingSite}:{}),...(directVentricularCapture&&q.capture?{captureMode:q.capture}:{}),...(evidence?{evidence}:{}),...(node==='V'&&q.origin==='paced'&&(!q.from||q.from.startsWith('F'))?{paceSite:q.from?.startsWith('F')?Number(q.from.slice(1)):6}:{}),...(atrialPattern?{atrialPattern}:{}),...(node==='A'&&this.ap&&q.from==='AP'?{atrialDelays:[20,0,0,8,18,28]}:{})});
    if(node==='H'&&q.from!=='V'&&this.pendingPVC){const p=this.pendingPVC;this.pendingPVC=null;this.add({t:q.t+p.coupling,kind:'stim',node:'V',output:p.output,pulseWidth:1,pacingSite:p.site==='base'?'RV-base':'RVA',generation:this.generation,label:'His-timed PVC',origin:p.site,location:p.site});}
    if(node==='V'&&this.shock){this.shock=false;this.add({t:q.t+16,kind:'shock'});}
@@ -112,7 +113,7 @@ export class DiagnosticEngine {
  }
  private local(q:Q,node:string){
   const voltage=this.m==='scar'?[.65,.25,.8,1.1,.9,.08,.7][this.selected]:1.2-this.selected*.08;
-  this.record({t:q.t,kind:'local',site:this.selected,node:this.vt?'V':'A',label:mapNames(this.m)[this.selected]+' · local electrogram',voltage,cause:q.cause,evidence:this.m==='fascicular'&&node.startsWith('F')?'purkinje':undefined});
+  this.record({t:q.t,kind:'local',site:this.selected,node:this.vt?'V':'A',label:mapNames(this.m)[this.selected]+' · local electrogram',voltage,...(this.m==='scar'&&voltage<.5?{electrogram:'fractionated' as const}:{}),cause:q.cause,evidence:this.m==='fascicular'&&node.startsWith('F')?'purkinje':undefined});
  }
  pace(p:Protocol,record=true){if(!validCommand({type:'pace',t:this.now,protocol:p}))throw new Error('Invalid pacing protocol.');if(record)this.commands.push({t:this.now,type:'pace',protocol:{...p}});this.generation++;this.pendingPVC=null;let t=this.now+100;
   const stimulus={kind:'stim' as const,node:p.site==='HRA'?'A':'V',output:p.output,pulseWidth:p.width,pacingSite:p.site,generation:this.generation};

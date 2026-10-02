@@ -6,14 +6,14 @@ export type Site = 'HRA' | 'RVA';
 export type PacingSite = Site | 'RV-base' | 'para-His' | 'mapping';
 export type CaptureMode = 'rv' | 'his-rv' | 'atrial';
 export type EventKind = 'activation' | 'stimulus' | 'block' | 'note' | 'shock' | 'local';
-export interface LabEvent { id:number; t:number; kind:EventKind; node?:NodeId; from?:NodeId; cause?:number; label:string; captured?:boolean; pulseWidth?:number; output?:number; pacingSite?:PacingSite; captureMode?:CaptureMode; atrialPattern?:'distal'|'focal'|'flutter'|'fibrillation'; atrialDelays?:number[]; site?:number; morphology?:'rvot'|'fascicular'|'scar'|'preexcited'|'paced'|'escape'; evidence?:string; voltage?:number; origin?:string; beat?:number;paceSite?:number }
+export interface LabEvent { id:number; t:number; kind:EventKind; node?:NodeId; from?:NodeId; cause?:number; label:string; captured?:boolean; pulseWidth?:number; output?:number; pacingSite?:PacingSite; captureMode?:CaptureMode; atrialPattern?:'distal'|'concentric'|'focal'|'flutter'|'fibrillation'; atrialDelays?:number[]; site?:number; morphology?:'rvot'|'fascicular'|'scar'|'preexcited'|'paced'|'escape'; evidence?:string; voltage?:number; electrogram?:'fractionated'; origin?:string; beat?:number;paceSite?:number }
 export interface Protocol { site:Site; s1:number; beats:number; s2:number|null; output:number; width:number;s3?:number|null }
 export type Command = {t:number; type:'pace'; protocol:Protocol}|{t:number;type:'stop'}|({t:number}&TherapyAction)|({t:number}&DiagnosticAction);
 export interface TissueRegion { id:string; label:string; position:[number,number,number]; excitability:number; conductionScale:number; lesionIds:string[] }
 export interface Electrode { id:string; regionId:string; position:[number,number,number]; contact:number; thresholdMA:number }
 export interface Lesion { id:string; regionId:string; modality:'RF'|'cryo'|'PFA'; createdAt:number; reversible:boolean; extentMM:number }
 export interface ImplantedLead { id:string; electrode:Electrode; fixation:'unfixed'|'fixed'; sensingMV:number; impedanceOhm:number }
-export const ENGINE_VERSION='0.4.0';
+export const ENGINE_VERSION='0.5.0';
 export type MechanismId='avnrt'|'avrt'|'at'|'flutter'|'af'|'atypical'|'septal'|'conduction'|'wpw'|'pjrt'|'sensitive'|'macro'|'rvot'|'fascicular'|'scar';
 export interface CaseDefinition {id:string;title:string;subtitle:string;description:string;difficulty:string;mechanism:MechanismId;fastERP:number;slowDelay:number;legacy?:boolean;advanced?:boolean}
 export const CASES:CaseDefinition[] = [
@@ -26,14 +26,15 @@ export const CASES:CaseDefinition[] = [
  // Retained for exact replay of studies exported before the five-case library.
  {id:'avnrt-02',title:'A different cycle length',subtitle:'Legacy parameter variant',description:'A slower-conduction AVNRT variant retained for saved studies.',difficulty:'Practice',mechanism:'avnrt',fastERP:350,slowDelay:285,legacy:true}
 ];
-export const isCompatibleSession=(version:string,caseId:string)=>CASES.some(c=>c.id===caseId&&(version===ENGINE_VERSION||!c.advanced&&(version==='0.3.0'||version==='0.2.0'||version==='0.1.0'&&['avnrt-01','avnrt-02'].includes(caseId))));
+export const isCompatibleSession=(version:string,caseId:string)=>CASES.some(c=>c.id===caseId&&((version===ENGINE_VERSION||version==='0.4.0')||!c.advanced&&(version==='0.3.0'||version==='0.2.0'||version==='0.1.0'&&['avnrt-01','avnrt-02'].includes(caseId))));
 export const REGIONS:TissueRegion[]=[{id:'high-ra',label:'High right atrium',position:[-26,26,0],excitability:1,conductionScale:1,lesionIds:[]},{id:'his',label:'His bundle',position:[0,0,0],excitability:1,conductionScale:1,lesionIds:[]},{id:'rv-apex',label:'RV apex',position:[-16,-46,10],excitability:1,conductionScale:1,lesionIds:[]},{id:'cti',label:'Cavotricuspid isthmus',position:[-22,-12,6],excitability:1,conductionScale:1,lesionIds:[]}];
 
 export function validCommand(command:unknown,version=ENGINE_VERSION):command is Command{
  if(!command||typeof command!=='object')return false;const c=command as Command;
  if(!Number.isFinite(c.t)||c.t<0)return false;
  if(c.type==='stop')return true;
- if(c.type==='drug'&&c.drug==='verapamil'&&version!==ENGINE_VERSION)return false;
- if(c.type!=='pace')return (version===ENGINE_VERSION||version==='0.3.0')&&validTherapy(c)||version===ENGINE_VERSION&&validDiagnostic(c);
- const p=c.protocol;return Boolean(p&&(p.s3===undefined||p.s3===null||version===ENGINE_VERSION&&p.s2!==null&&Number.isFinite(p.s3)&&p.s3>=180&&p.s3<=1000)&&['HRA','RVA'].includes(p.site)&&Number.isFinite(p.s1)&&p.s1>=220&&p.s1<=1500&&Number.isInteger(p.beats)&&p.beats>=1&&p.beats<=30&&Number.isFinite(p.output)&&p.output>=0&&p.output<=20&&Number.isFinite(p.width)&&p.width>=.1&&p.width<=2&&(p.s2===null||Number.isFinite(p.s2)&&p.s2>=180&&p.s2<=1000));
+ const modern=version===ENGINE_VERSION||version==='0.4.0';
+ if(c.type==='drug'&&c.drug==='verapamil'&&!modern)return false;
+ if(c.type!=='pace')return (modern||version==='0.3.0')&&validTherapy(c)||modern&&validDiagnostic(c);
+ const p=c.protocol;return Boolean(p&&(p.s3===undefined||p.s3===null||modern&&p.s2!==null&&Number.isFinite(p.s3)&&p.s3>=180&&p.s3<=1000)&&['HRA','RVA'].includes(p.site)&&Number.isFinite(p.s1)&&p.s1>=220&&p.s1<=1500&&Number.isInteger(p.beats)&&p.beats>=1&&p.beats<=30&&Number.isFinite(p.output)&&p.output>=0&&p.output<=20&&Number.isFinite(p.width)&&p.width>=.1&&p.width<=2&&(p.s2===null||Number.isFinite(p.s2)&&p.s2>=180&&p.s2<=1000));
 }

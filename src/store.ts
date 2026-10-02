@@ -1,9 +1,10 @@
 import {CHANNELS,FS} from './engine/signals';
-import type {LabEvent,Command} from './engine/model';
+import {ENGINE_VERSION,type LabEvent,type Command} from './engine/model';
 export interface Snapshot {caseId:string;now:number;commands:Command[]}
 export interface Session {id:string;title:string;savedAt:string;engineVersion:string;snapshot:Snapshot;measurements:Measurement[]}
 export interface Measurement {id:string;start:number;end:number;label:string;channel:string}
 export class Recording {
+ engineVersion=ENGINE_VERSION;
  capacity=FS*180;data=CHANNELS.map(()=>new Float32Array(this.capacity));end=0;events:LabEvent[]=[];revision=0;
  append(start:number,end:number,data:Float32Array[],events:LabEvent[]){const at=Math.round(start*FS/1000);for(let c=0;c<data.length;c++)for(let i=0;i<data[c].length;i++)this.data[c][(at+i)%this.capacity]=data[c][i];this.end=end;this.events.push(...events);this.events=this.events.filter(e=>e.t>this.end-180000);this.revision++;}
  value(ch:number,t:number){if(t<Math.max(0,this.end-180000)||t>=this.end)return 0;return this.data[ch][Math.floor(t*FS/1000)%this.capacity];}

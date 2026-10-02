@@ -1,3 +1,5 @@
+import {Synthesizer as PreviousSynthesizer} from '../src/engine/legacy/signals.ts';
+import {ENGINE_VERSION} from '../src/engine/model.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -10,7 +12,7 @@ import {Synthesizer} from '../src/engine/signals.ts';
 const workerCode=ts.transpileModule(readFileSync(new URL('../src/engine/sim.worker.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 function worker(caseId='avnrt-01'){
  let timer=()=>{};const messages:any[]=[];
- const context=vm.createContext({exports:{},onmessage:null,require:(id:string)=>{if(id==='./Engine')return {Engine};if(id==='./signals')return {Synthesizer};throw new Error(id);},postMessage:(m:any)=>messages.push(structuredClone(m)),setInterval:(fn:()=>void,ms:number)=>{assert.equal(ms,50);timer=fn;}});
+ const context=vm.createContext({exports:{},onmessage:null,require:(id:string)=>{if(id==='./Engine')return {Engine};if(id==='./legacy/signals')return {Synthesizer:PreviousSynthesizer};if(id==='./model')return {ENGINE_VERSION};if(id==='./signals')return {Synthesizer};throw new Error(id);},postMessage:(m:any)=>messages.push(structuredClone(m)),setInterval:(fn:()=>void,ms:number)=>{assert.equal(ms,50);timer=fn;}});
  vm.runInContext(workerCode,context);
  const send=(data:unknown)=>(context.onmessage as (m:unknown)=>void)({data});
  const frame=()=>messages.filter(m=>m.type==='frame').at(-1);
@@ -39,4 +41,12 @@ test('saved study replay uses the selected slow speed and retains command timest
 
 test('a study saved between normal-speed frames replays to its exact final time at any speed',()=>{
  for(const speed of [.25,.5,1,5]){const w=worker('scar-vt');const snapshot={caseId:'scar-vt',now:6512.5,commands:[{t:6012.5,type:'map',site:1}]};w.send({type:'speed',value:speed});w.send({type:'replay',snapshot});while(!w.messages.some(m=>m.type==='replay-complete'))w.tick();assert.equal(w.frame().end,snapshot.now);w.send({type:'snapshot'});assert.deepEqual(w.messages.at(-1).snapshot,snapshot);}
+});
+
+test('worker replay selects historical waveforms and preserves its engine version on resave',()=>{
+ const w=worker();w.take();w.send({type:'replay',engineVersion:'0.4.0',snapshot:{caseId:'avnrt-01',now:800,commands:[]}});
+ const old=new Engine('avnrt-01','0.4.0'),synth=new PreviousSynthesizer();
+ const frames=w.take().filter(m=>m.type==='frame');
+ for(const frame of frames){const cursor=old.events.length;old.advance(frame.end);const expected=synth.render(frame.start,frame.end,old.events.slice(cursor));assert.deepEqual(frame.data,expected);}
+ w.send({type:'snapshot'});assert.equal(w.take().find(m=>m.type==='snapshot')?.engineVersion,'0.4.0');
 });
